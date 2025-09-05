@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      NODE_ENV: development
+      PORT: 8000
+      DB_USER: ${DB_USER}
+      DB_HOST: db
+      DB_DATABASE: ${DB_DATABASE}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: 5432
+    depends_on:
+      - db
+    command: npm run dev:nodemon # Use nodemon for development hot-reloading
+    volumes:
+      - .:/app # Mount the current directory to /app in the container for hot-reloading
+      - /app/node_modules # this one
+
+  db:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database-schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+ 
+volumes:
+  db_data:
+  redis_data:

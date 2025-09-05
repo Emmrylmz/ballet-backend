@@ -1,0 +1,103 @@
+// First, install the cors package:
+// npm install cors
+// npm install --save-dev @types/cors (if using TypeScript)
+
+import express from 'express';
+import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
+import { errorHandler } from './middleware/errorHandler';
+import authRoutes from './features/auth/auth.routes';
+import studentRoutes from './features/students/students.routes';
+import instructorRoutes from './features/instructors/instructors.routes';
+import classTemplateRoutes from './features/class-templates/class-templates.routes';
+import classSessionRoutes from './features/class-sessions/class-sessions.routes';
+import attendanceRoutes from './features/attendance/attendance.routes';
+import paymentRoutes from './features/payments/payments.routes';
+import dashboardRoutes from './features/dashboard/dashboard.routes';
+import reportRoutes from './features/reports/reports.routes';
+import settingRoutes from './features/settings/settings.routes';
+
+const app = express();
+
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://192.168.121.139:3000',
+      'http://localhost:3001',
+      'https://your-frontend-domain.com',
+      // Add your production domain here
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Allow cookies and credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+  ],
+  maxAge: 86400, // Cache preflight response for 24 hours
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Alternative: Simple CORS setup (allows all origins - use only in development)
+// app.use(cors());
+
+// Body parsing middleware
+app.use(express.json());
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/students', studentRoutes);
+app.use('/api/v1/instructors', instructorRoutes);
+app.use('/api/v1/class-templates', classTemplateRoutes);
+app.use('/api/v1/sessions', classSessionRoutes);
+app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/settings', settingRoutes);
+
+// Error handling middleware (should be last)
+app.use(errorHandler);
+
+export default app;
+
+
+
+// Usage:
+// app.use(cors(getCorsOptions()));
+
+// CORS configuration with multiple origins
+const multiOriginCorsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001', 
+    'https://your-admin-panel.com',
+    'https://your-mobile-app.com',
+    /\.your-domain\.com$/, // Regex pattern for subdomains
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+};
+
+// Usage:
+// app.use(cors(multiOriginCorsOptions));
