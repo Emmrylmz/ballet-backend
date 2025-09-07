@@ -1,8 +1,10 @@
+import { Response, Request } from "express";
 import { LoggerService } from "../../services/LoggerService.js";
 import { AuthRepository } from "./auth.repository.js";
 import { TokenService } from "./services/TokenService.js";
 import { PasswordService } from "./services/PasswordService.js";
 import { EmailService } from "./services/EmailService.js";
+import { CookieService } from "./services/CookieService.js";
 import {
   AuthUser,
   LoginRequest,
@@ -19,7 +21,10 @@ import {
   AuthResponse,
   AuthError,
 } from "./auth.types.js";
-import { AUTH_ERRORS, SUCCESS_MESSAGES } from "../../constants/errorMessages.js";
+import {
+  AUTH_ERRORS,
+  SUCCESS_MESSAGES,
+} from "../../constants/errorMessages.js";
 
 export class AuthService {
   private readonly securitySettings: SecuritySettings;
@@ -33,6 +38,7 @@ export class AuthService {
     private tokenService: TokenService,
     private passwordService: PasswordService,
     private emailService: EmailService,
+    private cookieService: CookieService,
     private logger: LoggerService,
     config: {
       securitySettings: SecuritySettings;
@@ -47,7 +53,8 @@ export class AuthService {
   async login(
     loginData: LoginRequest,
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
+    res: Response
   ): Promise<AuthResponse<LoginResponse>> {
     try {
       const logData: any = {
@@ -188,12 +195,15 @@ export class AuthService {
         success: true,
       });
 
+      // Set HTTP-only cookies instead of returning tokens
+      this.cookieService.setTokenCookies(
+        res,
+        tokenPair.accessToken,
+        tokenPair.refreshToken
+      );
+
       const response: LoginResponse = {
         user,
-        tokens: {
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken,
-        },
         expiresIn: tokenPair.expiresIn,
       };
 
@@ -211,7 +221,11 @@ export class AuthService {
         error,
         email: loginData.email,
       });
-      throw this.createAuthError("LOGIN_FAILED", AUTH_ERRORS.SESSION_EXPIRED, 500);
+      throw this.createAuthError(
+        "LOGIN_FAILED",
+        AUTH_ERRORS.SESSION_EXPIRED,
+        500
+      );
     }
   }
 
@@ -293,7 +307,9 @@ export class AuthService {
       return {
         success: true,
         data: {
-          message: SUCCESS_MESSAGES.REGISTER_SUCCESS + ". Lütfen hesabınızı aktifleştirmek için e-postanızı kontrol edin.",
+          message:
+            SUCCESS_MESSAGES.REGISTER_SUCCESS +
+            ". Lütfen hesabınızı aktifleştirmek için e-postanızı kontrol edin.",
         },
       };
     } catch (error) {
@@ -316,7 +332,8 @@ export class AuthService {
   async activateAccount(
     activationData: ActivateAccountRequest,
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
+    res: Response
   ): Promise<AuthResponse<LoginResponse>> {
     try {
       // Find registration data by activation token
@@ -395,12 +412,15 @@ export class AuthService {
         success: true,
       });
 
+      // Set HTTP-only cookies
+      this.cookieService.setTokenCookies(
+        res,
+        tokenPair.accessToken,
+        tokenPair.refreshToken
+      );
+
       const response: LoginResponse = {
         user,
-        tokens: {
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken,
-        },
         expiresIn: tokenPair.expiresIn,
       };
 
@@ -546,7 +566,11 @@ export class AuthService {
       // Find user
       const user = await this.authRepository.findUserById(tokenData.sub);
       if (!user) {
-        throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
+        throw this.createAuthError(
+          "USER_NOT_FOUND",
+          AUTH_ERRORS.USER_NOT_FOUND,
+          404
+        );
       }
 
       // Validate new password
@@ -585,7 +609,9 @@ export class AuthService {
       return {
         success: true,
         data: {
-          message: SUCCESS_MESSAGES.PASSWORD_CHANGED + ". Lütfen yeni şifrenizle giriş yapın.",
+          message:
+            SUCCESS_MESSAGES.PASSWORD_CHANGED +
+            ". Lütfen yeni şifrenizle giriş yapın.",
         },
       };
     } catch (error) {
@@ -614,13 +640,21 @@ export class AuthService {
       // Find user
       const user = await this.authRepository.findUserById(userId);
       if (!user) {
-        throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
+        throw this.createAuthError(
+          "USER_NOT_FOUND",
+          AUTH_ERRORS.USER_NOT_FOUND,
+          404
+        );
       }
 
       // Get current password hash
       const userWithPassword = await this.getUserWithPassword(userId);
       if (!userWithPassword) {
-        throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
+        throw this.createAuthError(
+          "USER_NOT_FOUND",
+          AUTH_ERRORS.USER_NOT_FOUND,
+          404
+        );
       }
 
       // Verify current password
@@ -699,20 +733,29 @@ export class AuthService {
   }
 
   async refreshToken(
-    refreshData: RefreshTokenRequest,
+    req: Request,
+    res: Response,
     ipAddress: string,
     userAgent: string
   ): Promise<
     AuthResponse<{
-      accessToken: string;
-      refreshToken: string;
       expiresIn: number;
     }>
   > {
     try {
+      // Get refresh token from cookies
+      const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+      if (!refreshToken) {
+        throw this.createAuthError(
+          "REFRESH_TOKEN_REQUIRED",
+          AUTH_ERRORS.REFRESH_TOKEN_REQUIRED,
+          401
+        );
+      }
+
       // Verify refresh token
       const tokenData = await this.tokenService.verifyRefreshToken(
-        refreshData.refreshToken
+        refreshToken
       );
       if (!tokenData) {
         throw this.createAuthError(
@@ -725,7 +768,7 @@ export class AuthService {
       // Find user
       const user = await this.authRepository.findUserById(tokenData.sub);
       if (!user || user.status !== "active") {
-        await this.tokenService.revokeRefreshToken(refreshData.refreshToken);
+        await this.tokenService.revokeRefreshToken(refreshToken);
         throw this.createAuthError(
           "USER_NOT_FOUND",
           AUTH_ERRORS.USER_NOT_FOUND,
@@ -741,7 +784,14 @@ export class AuthService {
       );
 
       // Revoke old refresh token
-      await this.tokenService.revokeRefreshToken(refreshData.refreshToken);
+      await this.tokenService.revokeRefreshToken(refreshToken);
+
+      // Set new HTTP-only cookies
+      this.cookieService.setTokenCookies(
+        res,
+        newTokenPair.accessToken,
+        newTokenPair.refreshToken
+      );
 
       await this.logAuthEvent({
         userId: user.id,
@@ -755,8 +805,6 @@ export class AuthService {
       return {
         success: true,
         data: {
-          accessToken: newTokenPair.accessToken,
-          refreshToken: newTokenPair.refreshToken,
           expiresIn: newTokenPair.expiresIn,
         },
       };
@@ -778,15 +826,22 @@ export class AuthService {
 
   async logout(
     userId: string,
-    refreshToken: string,
+    req: Request,
+    res: Response,
     ipAddress: string,
     userAgent: string
   ): Promise<AuthResponse<{ message: string }>> {
     try {
       const user = await this.authRepository.findUserById(userId);
 
-      // Revoke refresh token
-      await this.tokenService.revokeRefreshToken(refreshToken);
+      // Get refresh token from cookies and revoke it
+      const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+      if (refreshToken) {
+        await this.tokenService.revokeRefreshToken(refreshToken);
+      }
+
+      // Clear all authentication cookies
+      this.cookieService.clearAllAuthCookies(res);
 
       const logData: any = {
         userId,
@@ -818,7 +873,11 @@ export class AuthService {
     try {
       const user = await this.authRepository.findUserById(userId);
       if (!user) {
-        throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
+        throw this.createAuthError(
+          "USER_NOT_FOUND",
+          AUTH_ERRORS.USER_NOT_FOUND,
+          404
+        );
       }
 
       return {

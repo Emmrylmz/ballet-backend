@@ -676,7 +676,7 @@ export class AuthRoutes {
     );
 
     // Admin routes (require admin role or higher)
-    this.router.use(this.authMiddleware.requireRoles('admin', 'super_admin'));
+    this.router.use(this.authMiddleware.requireRoles('admin'));
 
     // Add admin-specific auth routes here if needed
     // For example: user management, role assignments, etc.

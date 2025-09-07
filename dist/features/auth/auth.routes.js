@@ -24,10 +24,11 @@ export class AuthRoutes {
         this.router.post('/logout', ValidationMiddleware.validateBody(this.getLogoutSchema()), this.authController.logout.bind(this.authController));
         this.router.post('/change-password', ValidationMiddleware.validateBody(this.getChangePasswordSchema()), this.authController.changePassword.bind(this.authController));
         this.router.get('/me', this.authController.getCurrentUser.bind(this.authController));
+        this.router.get('/profile', this.authController.getCurrentUser.bind(this.authController));
         this.router.get('/validate-token', this.authController.validateToken.bind(this.authController));
         this.router.get('/sessions', this.authController.getUserSessions.bind(this.authController));
         this.router.delete('/sessions/:sessionId', ValidationMiddleware.validateParams(this.getSessionIdSchema()), this.authController.revokeSession.bind(this.authController));
-        this.router.use(this.authMiddleware.requireRoles('admin', 'super_admin'));
+        this.router.use(this.authMiddleware.requireRoles('admin'));
     }
     getRouter() {
         return this.router;
@@ -97,9 +98,10 @@ export class AuthRoutes {
             }),
             phone: Joi.string()
                 .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-                .optional()
+                .required()
                 .messages({
-                'string.pattern.base': 'Please provide a valid phone number'
+                'string.pattern.base': 'Please provide a valid phone number',
+                'any.required': 'Phone number is required'
             })
         });
     }

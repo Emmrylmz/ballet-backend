@@ -8,7 +8,11 @@ import {
   InvitationSettings,
   CreateInstructorInvitationRequest,
 } from "./invitation.types.js";
-import { INVITATION_ERRORS, AUTH_ERRORS, SUCCESS_MESSAGES } from "../../constants/errorMessages.js";
+import {
+  INVITATION_ERRORS,
+  AUTH_ERRORS,
+  SUCCESS_MESSAGES,
+} from "../../constants/errorMessages.js";
 
 interface Establishment {
   id: string;
@@ -144,7 +148,7 @@ export class InvitationController {
 
       // Validate phone number format (international format recommended)
       const phoneRegex = /^\+?[1-9]\d{1,14}$/; // E.164 format: +[country code][number] (max 15 digits)
-      const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, ''); // Remove formatting
+      const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, ""); // Remove formatting
       if (!phoneRegex.test(cleanPhone) || cleanPhone.length < 10) {
         res.status(400).json({
           success: false,
@@ -172,10 +176,11 @@ export class InvitationController {
         expiryHours,
       };
 
-      const invitation = await this.invitationService.createInstructorInvitation(
-        invitationRequest,
-        req.user!.id
-      );
+      const invitation =
+        await this.invitationService.createInstructorInvitation(
+          invitationRequest,
+          req.user!.id
+        );
 
       res.status(201).json({
         success: true,
@@ -184,7 +189,10 @@ export class InvitationController {
       });
     } catch (error: any) {
       // Handle specific error cases with appropriate HTTP status codes
-      if (error.message?.includes("aktif bir davetiye") || error.message?.includes("active instructor invitation")) {
+      if (
+        error.message?.includes("aktif bir davetiye") ||
+        error.message?.includes("active instructor invitation")
+      ) {
         res.status(409).json({
           success: false,
           message: INVITATION_ERRORS.DUPLICATE_INVITATION,
@@ -193,7 +201,10 @@ export class InvitationController {
         return;
       }
 
-      if (error.message?.includes("zaten bu kurumun üyesi") || error.message?.includes("already a member")) {
+      if (
+        error.message?.includes("zaten bu kurumun üyesi") ||
+        error.message?.includes("already a member")
+      ) {
         res.status(409).json({
           success: false,
           message: INVITATION_ERRORS.USER_ALREADY_EXISTS,
@@ -202,7 +213,10 @@ export class InvitationController {
         return;
       }
 
-      if (error.message?.includes("Sadece yöneticiler") || error.message?.includes("Only managers")) {
+      if (
+        error.message?.includes("Sadece yöneticiler") ||
+        error.message?.includes("Only managers")
+      ) {
         res.status(403).json({
           success: false,
           message: INVITATION_ERRORS.ONLY_MANAGERS_CAN_INVITE_INSTRUCTORS,
@@ -211,7 +225,10 @@ export class InvitationController {
         return;
       }
 
-      if (error.message?.includes("davetiye gönderimi devre dışı") || error.message?.includes("invitations are disabled")) {
+      if (
+        error.message?.includes("davetiye gönderimi devre dışı") ||
+        error.message?.includes("invitations are disabled")
+      ) {
         res.status(400).json({
           success: false,
           message: INVITATION_ERRORS.INVITATIONS_DISABLED,
@@ -335,7 +352,7 @@ export class InvitationController {
       }
 
       await this.invitationService.revokeInvitation(
-        invitationId, 
+        invitationId,
         req.user!.id,
         req.establishment!.id,
         req.establishment!.userRole
@@ -347,7 +364,11 @@ export class InvitationController {
       });
     } catch (error: any) {
       // Handle permission-specific errors
-      if (error.message?.includes("Only managers can revoke instructor invitations")) {
+      if (
+        error.message?.includes(
+          "Only managers can revoke instructor invitations"
+        )
+      ) {
         res.status(403).json({
           success: false,
           message: error.message,
@@ -377,7 +398,6 @@ export class InvitationController {
       this.logger.error("Failed to revoke invitation", {
         error,
         userId: req.user?.id,
-        invitationId: invitationId,
       });
       next(error);
     }
@@ -432,10 +452,12 @@ export class InvitationController {
           usageCount: validation.invitation?.usageCount,
           warningMessage: validation.warningMessage,
           // Include instructor email for instructor invitations
-          ...(validation.invitation?.type === "instructor" && validation.invitation.instructorEmail && {
-            requiredEmail: validation.invitation.instructorEmail,
-            emailNote: "This instructor invitation requires you to be logged in with the invited email address"
-          }),
+          ...(validation.invitation?.type === "instructor" &&
+            validation.invitation.instructorEmail && {
+              requiredEmail: validation.invitation.instructorEmail,
+              emailNote:
+                "This instructor invitation requires you to be logged in with the invited email address",
+            }),
         },
         message: "Valid invitation",
       });
@@ -496,7 +518,9 @@ export class InvitationController {
       });
     } catch (error: any) {
       // Handle email verification errors for instructor invitations
-      if (error.message?.includes("Please log in with the correct email address")) {
+      if (
+        error.message?.includes("Please log in with the correct email address")
+      ) {
         res.status(403).json({
           success: false,
           message: error.message,

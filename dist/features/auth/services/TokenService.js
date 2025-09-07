@@ -13,17 +13,16 @@ export class TokenService {
         this.refreshTokenSecret = config.refreshTokenSecret;
         this.securitySettings = config.securitySettings;
     }
-    async generateTokenPair(userId, email, role, establishmentId, permissions) {
+    async generateTokenPair(userId, email, establishments) {
         try {
             const now = Math.floor(Date.now() / 1000);
             const accessTokenExpiry = now + this.securitySettings.tokenExpiryTime * 60;
             const refreshTokenExpiry = now + this.securitySettings.refreshTokenExpiryTime * 24 * 60 * 60;
+            const places = establishments && establishments.length > 0 ? establishments : [];
             const accessPayload = {
                 sub: userId,
                 email,
-                role,
-                establishmentId,
-                permissions,
+                establishments: places,
                 tokenType: "access",
                 iat: now,
                 exp: accessTokenExpiry,
@@ -34,9 +33,7 @@ export class TokenService {
             const refreshPayload = {
                 sub: userId,
                 email,
-                role,
-                establishmentId,
-                permissions: [],
+                establishments: places,
                 tokenType: "refresh",
                 iat: now,
                 exp: refreshTokenExpiry,
@@ -47,8 +44,7 @@ export class TokenService {
             await this.storeRefreshToken(userId, refreshToken, new Date(refreshTokenExpiry * 1000));
             this.logger.info("Generated token pair for user", {
                 userId,
-                role,
-                establishmentId,
+                establishments,
                 accessTokenExpiry: new Date(accessTokenExpiry * 1000),
                 refreshTokenExpiry: new Date(refreshTokenExpiry * 1000),
             });
@@ -136,7 +132,9 @@ export class TokenService {
     }
     verifySpecialToken(token, expectedType) {
         try {
+            console.log(token, "TOKENNNN");
             const decoded = jwt.verify(token, this.accessTokenSecret);
+            console.log(decoded, "DECODED");
             if (decoded.type !== expectedType) {
                 throw new Error("Invalid token type");
             }

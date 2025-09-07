@@ -1,6 +1,6 @@
 import { DatabaseService } from "../../../services/DatabaseService.js";
 import { LoggerService } from "../../../services/LoggerService.js";
-import { JWTPayload, UserRole, SecuritySettings } from "../auth.types.js";
+import { JWTPayload, SecuritySettings, Establishment } from "../auth.types.js";
 export declare class TokenService {
     private db;
     private logger;
@@ -12,7 +12,7 @@ export declare class TokenService {
         refreshTokenSecret: string;
         securitySettings: SecuritySettings;
     });
-    generateTokenPair(userId: string, email: string, role: UserRole, establishmentId: string, permissions: string[]): Promise<{
+    generateTokenPair(userId: string, email: string, establishments?: Establishment[]): Promise<{
         accessToken: string;
         refreshToken: string;
         expiresIn: number;

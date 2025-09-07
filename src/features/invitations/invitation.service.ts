@@ -12,12 +12,18 @@ import {
   InvitationType,
   CreateInstructorInvitationRequest,
 } from "./invitation.types.js";
-import { INVITATION_ERRORS, AUTH_ERRORS, formatMessage } from "../../constants/errorMessages.js";
+import {
+  INVITATION_ERRORS,
+  AUTH_ERRORS,
+  formatMessage,
+} from "../../constants/errorMessages.js";
+import { PasswordService } from "../auth/services/PasswordService.js";
 
 export class InvitationService {
   constructor(
     private invitationRepository: InvitationRepository,
     private authRepository: AuthRepository,
+    private passwordService: PasswordService,
     private logger: LoggerService
   ) {}
 
@@ -62,21 +68,25 @@ export class InvitationService {
 
       // Check if there's already an active invitation for this email (normalize case)
       const normalizedEmail = request.email.toLowerCase().trim();
-      const hasActiveInvitation = await this.invitationRepository.hasActiveInstructorInvitation(
-        normalizedEmail,
-        request.establishmentId
-      );
+      const hasActiveInvitation =
+        await this.invitationRepository.hasActiveInstructorInvitation(
+          normalizedEmail,
+          request.establishmentId
+        );
       if (hasActiveInvitation) {
         throw new Error(INVITATION_ERRORS.DUPLICATE_INVITATION);
       }
 
       // Check if user with this email already exists and is already an instructor
-      const existingUser = await this.authRepository.findUserByEmail(normalizedEmail);
+      const existingUser = await this.authRepository.findUserByEmail(
+        normalizedEmail
+      );
       if (existingUser) {
-        const existsInEstablishment = await this.invitationRepository.userExistsInEstablishment(
-          existingUser.id,
-          request.establishmentId
-        );
+        const existsInEstablishment =
+          await this.invitationRepository.userExistsInEstablishment(
+            existingUser.id,
+            request.establishmentId
+          );
         if (existsInEstablishment) {
           throw new Error(INVITATION_ERRORS.USER_ALREADY_EXISTS);
         }
@@ -90,65 +100,67 @@ export class InvitationService {
       const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
 
       // Use DatabaseService transaction method to ensure data consistency
-      const invitationId = await this.invitationRepository.db.transaction(async (client) => {
-        // Create invitation in database
-        const result = await client.query(
-          `
+      const invitationId = await this.invitationRepository.db.transaction(
+        async (client) => {
+          // Create invitation in database
+          const result = await client.query(
+            `
           INSERT INTO invitations (
             establishment_id, created_by, invitation_type, token, 
             usage_limit, message, expires_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `,
-          [
-            request.establishmentId,
-            createdBy,
-            "instructor",
-            token,
-            1, // Always 1 for instructor invitations
-            request.message || null,
-            expiresAt,
-          ]
-        );
+            [
+              request.establishmentId,
+              createdBy,
+              "instructor",
+              token,
+              1, // Always 1 for instructor invitations
+              request.message || null,
+              expiresAt,
+            ]
+          );
 
-        const invitationId = result.rows[0].id;
+          const invitationId = result.rows[0].id;
 
-        // Store instructor-specific details (email and phone) - use normalized email
-        await client.query(
-          `
+          // Store instructor-specific details (email and phone) - use normalized email
+          await client.query(
+            `
           INSERT INTO instructor_invitations (
             invitation_id, email, phone_number, establishment_id, 
             invited_by, message, expires_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
-          [
-            invitationId,
-            normalizedEmail,
-            request.phoneNumber,
-            request.establishmentId,
-            createdBy,
-            request.message || null,
-            expiresAt,
-          ]
-        );
+            [
+              invitationId,
+              normalizedEmail,
+              request.phoneNumber,
+              request.establishmentId,
+              createdBy,
+              request.message || null,
+              expiresAt,
+            ]
+          );
 
-        // Log activity within the same transaction
-        await client.query(
-          `
+          // Log activity within the same transaction
+          await client.query(
+            `
           INSERT INTO activities (
             establishment_id, activity_type, title, description, user_id
           ) VALUES ($1, 'invitation', $2, $3, $4)
         `,
-          [
-            request.establishmentId,
-            `Invitation created`,
-            `Instructor invitation sent to ${normalizedEmail} (${request.phoneNumber})`,
-            createdBy
-          ]
-        );
+            [
+              request.establishmentId,
+              `Invitation created`,
+              `Instructor invitation sent to ${normalizedEmail} (${request.phoneNumber})`,
+              createdBy,
+            ]
+          );
 
-        return invitationId;
-      });
+          return invitationId;
+        }
+      );
 
       // Get invitation details for response
       const invitation = await this.invitationRepository.findByToken(token);
@@ -172,7 +184,7 @@ export class InvitationService {
         status: "active",
         createdBy,
         createdByName: invitation.invitation.createdByName,
-        message: request.message,
+        message: request.message || "",
         usageLimit: 1,
         usageCount: 0,
         expiresAt: expiresAt.toISOString(),
@@ -241,7 +253,9 @@ export class InvitationService {
       // Validate limits
       if (expiryHours > settings.studentInvitationMaxHours) {
         throw new Error(
-          formatMessage("Geçerlilik süresi {max} saati geçemez", { max: settings.studentInvitationMaxHours })
+          formatMessage("Geçerlilik süresi {max} saati geçemez", {
+            max: settings.studentInvitationMaxHours,
+          })
         );
       }
 
@@ -367,7 +381,9 @@ export class InvitationService {
       // Validate invitation
       const validation = await this.validateInvitation(token, userId);
       if (!validation.isValid || !validation.invitation) {
-        throw new Error(validation.error || INVITATION_ERRORS.INVALID_INVITATION);
+        throw new Error(
+          validation.error || INVITATION_ERRORS.INVALID_INVITATION
+        );
       }
 
       const invitation = validation.invitation;
@@ -380,9 +396,14 @@ export class InvitationService {
 
       // For instructor invitations, verify the user's email matches the invitation email
       if (invitation.type === "instructor" && invitation.instructorEmail) {
-        if (user.email.toLowerCase().trim() !== invitation.instructorEmail.toLowerCase().trim()) {
+        if (
+          user.email.toLowerCase().trim() !==
+          invitation.instructorEmail.toLowerCase().trim()
+        ) {
           throw new Error(
-            formatMessage(INVITATION_ERRORS.EMAIL_MISMATCH, { email: invitation.instructorEmail })
+            formatMessage(INVITATION_ERRORS.EMAIL_MISMATCH, {
+              email: invitation.instructorEmail,
+            })
           );
         }
       }
@@ -419,8 +440,9 @@ export class InvitationService {
       }
 
       // Use transaction to ensure all acceptance operations are atomic
-      const userRole = invitation.type === "instructor" ? "instructor" : "student";
-      
+      const userRole =
+        invitation.type === "instructor" ? "instructor" : "student";
+
       await this.invitationRepository.db.transaction(async (client) => {
         // Record the invitation usage
         await client.query(
@@ -449,13 +471,18 @@ export class InvitationService {
 
         // Update instructor invitation status if it's an instructor invitation
         if (invitation.type === "instructor") {
-          const exists = await this.invitationRepository.tableExists('instructor_invitations');
+          const exists = await this.invitationRepository.tableExists(
+            "instructor_invitations"
+          );
           if (exists) {
-            await client.query(`
+            await client.query(
+              `
               UPDATE instructor_invitations 
               SET status = $1, accepted_at = NOW(), updated_at = NOW()
               WHERE invitation_id = $2
-            `, ['accepted', invitation.id]);
+            `,
+              ["accepted", invitation.id]
+            );
           }
         }
 
@@ -539,8 +566,9 @@ export class InvitationService {
   ): Promise<void> {
     try {
       // Get invitation details first to check type
-      const invitationDetails = await this.invitationRepository.getInvitationById(invitationId);
-      
+      const invitationDetails =
+        await this.invitationRepository.getInvitationById(invitationId);
+
       if (!invitationDetails) {
         throw new Error("Invitation not found");
       }
@@ -562,19 +590,24 @@ export class InvitationService {
       await this.invitationRepository.db.transaction(async (client) => {
         // Update main invitation status
         await client.query(
-          'UPDATE invitations SET status = $1, updated_at = NOW() WHERE id = $2',
-          ['revoked', invitationId]
+          "UPDATE invitations SET status = $1, updated_at = NOW() WHERE id = $2",
+          ["revoked", invitationId]
         );
 
         // Update instructor invitation status if it's an instructor invitation
         if (invitationDetails.type === "instructor") {
-          const exists = await this.invitationRepository.tableExists('instructor_invitations');
+          const exists = await this.invitationRepository.tableExists(
+            "instructor_invitations"
+          );
           if (exists) {
-            await client.query(`
+            await client.query(
+              `
               UPDATE instructor_invitations 
               SET status = $1, updated_at = NOW()
               WHERE invitation_id = $2
-            `, ['revoked', invitationId]);
+            `,
+              ["revoked", invitationId]
+            );
           }
         }
 
@@ -589,16 +622,16 @@ export class InvitationService {
             invitationDetails.establishmentId,
             `Invitation revoked`,
             `${invitationDetails.type} invitation revoked`,
-            revokedBy
+            revokedBy,
           ]
         );
       });
 
-      this.logger.info("Invitation revoked", { 
-        invitationId, 
-        revokedBy, 
+      this.logger.info("Invitation revoked", {
+        invitationId,
+        revokedBy,
         invitationType: invitationDetails.type,
-        userRole 
+        userRole,
       });
     } catch (error) {
       this.logger.error("Failed to revoke invitation", {

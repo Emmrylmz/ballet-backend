@@ -34,6 +34,7 @@ export declare class Application {
     private config;
     private isStarted;
     private authMiddleware?;
+    private invitationCleanupService?;
     constructor(config: ApplicationConfig);
     start(): Promise<void>;
     stop(): Promise<void>;
@@ -48,6 +49,7 @@ export declare class Application {
     private setupRoutes;
     private loadExistingRoutes;
     private setupAuthModule;
+    private setupInvitationModule;
     private loadRoute;
     private setupErrorHandling;
     private startServer;

@@ -4,9 +4,9 @@ const config = {
     port: Number(process.env.PORT) || 3000,
     cors: {
         origins: [
+            'http://localhost:8001',
+            'http://192.168.20.139:3000',
             'http://localhost:3000',
-            'http://192.168.121.139:3000',
-            'http://localhost:3001',
             'https://your-frontend-domain.com',
             ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
         ],

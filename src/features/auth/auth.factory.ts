@@ -8,6 +8,7 @@ import { AuthMiddleware } from './middleware/AuthMiddleware.js';
 import { TokenService } from './services/TokenService.js';
 import { PasswordService } from './services/PasswordService.js';
 import { EmailService, ConsoleEmailProvider } from './services/EmailService.js';
+import { CookieService } from './services/CookieService.js';
 import { SecuritySettings } from './auth.types.js';
 
 export class AuthFactory {
@@ -19,6 +20,7 @@ export class AuthFactory {
   private tokenService?: TokenService;
   private passwordService?: PasswordService;
   private authRepository?: AuthRepository;
+  private cookieService?: CookieService;
 
   private constructor() {}
 
@@ -69,12 +71,22 @@ export class AuthFactory {
       }
     );
 
+    // Create cookie service
+    this.cookieService = new CookieService(logger, {
+      domain: '', // Empty string means no domain restriction (works for localhost)
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // Changed from 'strict' to 'lax' for better cross-origin compatibility
+      accessTokenExpiry: config.securitySettings.tokenExpiryTime * 60, // Convert to seconds
+      refreshTokenExpiry: config.securitySettings.refreshTokenExpiryTime * 24 * 60 * 60 // Convert to seconds
+    });
+
     // Create auth service
     this.authService = new AuthService(
       this.authRepository,
       this.tokenService,
       this.passwordService,
       emailService,
+      this.cookieService,
       logger,
       {
         securitySettings: config.securitySettings,
@@ -86,7 +98,7 @@ export class AuthFactory {
 
     // Create controller and middleware
     this.authController = new AuthController(this.authService, logger);
-    this.authMiddleware = new AuthMiddleware(this.tokenService, this.authRepository, logger);
+    this.authMiddleware = new AuthMiddleware(this.tokenService, this.cookieService, this.authRepository, logger);
 
     // Create routes
     this.authRoutes = new AuthRoutes(this.authController, this.authMiddleware);
@@ -141,5 +153,9 @@ export class AuthFactory {
 
   getAuthRepository(): AuthRepository | undefined {
     return this.authRepository;
+  }
+
+  getCookieService(): CookieService | undefined {
+    return this.cookieService;
   }
 }

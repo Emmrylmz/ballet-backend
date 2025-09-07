@@ -37,7 +37,8 @@ export class AuthController {
       const result = await this.authService.login(
         loginData,
         ipAddress,
-        userAgent
+        userAgent,
+        res
       );
 
       res.status(200).json(result);
@@ -67,7 +68,8 @@ export class AuthController {
       const result = await this.authService.activateAccount(
         activationData,
         ipAddress,
-        userAgent
+        userAgent,
+        res
       );
 
       res.status(200).json(result);
@@ -144,12 +146,12 @@ export class AuthController {
 
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
-      const refreshData: RefreshTokenRequest = req.body;
       const ipAddress = this.getClientIp(req);
       const userAgent = req.get("User-Agent") || "Unknown";
 
       const result = await this.authService.refreshToken(
-        refreshData,
+        req,
+        res,
         ipAddress,
         userAgent
       );
@@ -170,21 +172,13 @@ export class AuthController {
         return;
       }
 
-      const refreshToken = req.body.refreshToken;
-      if (!refreshToken) {
-        res.status(400).json({
-          success: false,
-          message: AUTH_ERRORS.REFRESH_TOKEN_REQUIRED,
-        });
-        return;
-      }
-
       const ipAddress = this.getClientIp(req);
       const userAgent = req.get("User-Agent") || "Unknown";
 
       const result = await this.authService.logout(
         req.user.id,
-        refreshToken,
+        req,
+        res,
         ipAddress,
         userAgent
       );

@@ -1,21 +1,24 @@
 import { AuthError, } from "./auth.types.js";
+import { AUTH_ERRORS, SUCCESS_MESSAGES } from "../../constants/errorMessages.js";
 export class AuthService {
     authRepository;
     tokenService;
     passwordService;
     emailService;
+    cookieService;
     logger;
     securitySettings;
     loginAttempts = new Map();
-    constructor(authRepository, tokenService, passwordService, emailService, logger, config) {
+    constructor(authRepository, tokenService, passwordService, emailService, cookieService, logger, config) {
         this.authRepository = authRepository;
         this.tokenService = tokenService;
         this.passwordService = passwordService;
         this.emailService = emailService;
+        this.cookieService = cookieService;
         this.logger = logger;
         this.securitySettings = config.securitySettings;
     }
-    async login(loginData, ipAddress, userAgent) {
+    async login(loginData, ipAddress, userAgent, res) {
         try {
             const logData = {
                 email: loginData.email,
@@ -28,7 +31,7 @@ export class AuthService {
             await this.logAuthEvent(logData);
             const rateLimitResult = await this.checkRateLimit(loginData.email, ipAddress);
             if (!rateLimitResult.allowed) {
-                throw this.createAuthError("TOO_MANY_ATTEMPTS", "Too many login attempts. Please try again later.", 429, { retryAfter: rateLimitResult.retryAfter });
+                throw this.createAuthError("TOO_MANY_ATTEMPTS", AUTH_ERRORS.ACCOUNT_LOCKED, 429, { retryAfter: rateLimitResult.retryAfter });
             }
             const user = await this.authRepository.findUserByEmail(loginData.email);
             if (!user) {
@@ -41,7 +44,7 @@ export class AuthService {
                     success: false,
                     failureReason: "User not found",
                 });
-                throw this.createAuthError("INVALID_CREDENTIALS", "Invalid email or password", 401);
+                throw this.createAuthError("INVALID_CREDENTIALS", AUTH_ERRORS.INVALID_CREDENTIALS, 401);
             }
             if (user.status === "suspended") {
                 await this.logAuthEvent({
@@ -50,11 +53,10 @@ export class AuthService {
                     action: "login_failure",
                     ipAddress,
                     userAgent,
-                    establishmentId: user.establishmentId,
                     success: false,
                     failureReason: "Account suspended",
                 });
-                throw this.createAuthError("ACCOUNT_SUSPENDED", "Account has been suspended", 403);
+                throw this.createAuthError("ACCOUNT_SUSPENDED", AUTH_ERRORS.ACCOUNT_DISABLED, 403);
             }
             if (user.status === "pending") {
                 await this.logAuthEvent({
@@ -63,15 +65,14 @@ export class AuthService {
                     action: "login_failure",
                     ipAddress,
                     userAgent,
-                    establishmentId: user.establishmentId,
                     success: false,
                     failureReason: "Account not activated",
                 });
-                throw this.createAuthError("ACCOUNT_NOT_ACTIVATED", "Please activate your account first", 403);
+                throw this.createAuthError("ACCOUNT_NOT_ACTIVATED", AUTH_ERRORS.EMAIL_NOT_VERIFIED, 403);
             }
             const userWithPassword = await this.getUserWithPassword(user.id);
             if (!userWithPassword) {
-                throw this.createAuthError("INVALID_CREDENTIALS", "Invalid email or password", 401);
+                throw this.createAuthError("INVALID_CREDENTIALS", AUTH_ERRORS.INVALID_CREDENTIALS, 401);
             }
             const isPasswordValid = await this.passwordService.verifyPassword(loginData.password, userWithPassword.passwordHash);
             if (!isPasswordValid) {
@@ -82,13 +83,12 @@ export class AuthService {
                     action: "login_failure",
                     ipAddress,
                     userAgent,
-                    establishmentId: user.establishmentId,
                     success: false,
                     failureReason: "Invalid password",
                 });
-                throw this.createAuthError("INVALID_CREDENTIALS", "Invalid email or password", 401);
+                throw this.createAuthError("INVALID_CREDENTIALS", AUTH_ERRORS.INVALID_CREDENTIALS, 401);
             }
-            const tokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.role, user.establishmentId, user.permissions);
+            const tokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);
             await this.authRepository.updateUser(user.id, { lastLogin: new Date() });
             this.loginAttempts.delete(loginData.email);
             await this.logAuthEvent({
@@ -97,21 +97,17 @@ export class AuthService {
                 action: "login_success",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
+            this.cookieService.setTokenCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
             const response = {
                 user,
-                tokens: {
-                    accessToken: tokenPair.accessToken,
-                    refreshToken: tokenPair.refreshToken,
-                },
                 expiresIn: tokenPair.expiresIn,
             };
             return {
                 success: true,
                 data: response,
-                message: "Login successful",
+                message: SUCCESS_MESSAGES.LOGIN_SUCCESS,
             };
         }
         catch (error) {
@@ -122,22 +118,23 @@ export class AuthService {
                 error,
                 email: loginData.email,
             });
-            throw this.createAuthError("LOGIN_FAILED", "Login failed", 500);
+            throw this.createAuthError("LOGIN_FAILED", AUTH_ERRORS.SESSION_EXPIRED, 500);
         }
     }
     async register(registerData) {
         try {
             const emailExists = await this.authRepository.checkEmailExists(registerData.email);
             if (emailExists) {
-                throw this.createAuthError("EMAIL_ALREADY_EXISTS", "Email address is already registered", 409);
+                throw this.createAuthError("EMAIL_ALREADY_EXISTS", AUTH_ERRORS.EMAIL_ALREADY_EXISTS, 409);
             }
             const passwordValidation = this.passwordService.validatePasswordStrength(registerData.password);
             if (!passwordValidation.isValid) {
-                throw this.createAuthError("WEAK_PASSWORD", "Password does not meet security requirements", 400, { errors: passwordValidation.errors });
+                throw this.createAuthError("WEAK_PASSWORD", AUTH_ERRORS.INVALID_PASSWORD_FORMAT, 400, { errors: passwordValidation.errors });
             }
             const passwordHash = await this.passwordService.hashPassword(registerData.password);
             const activationToken = this.tokenService.generateSecureToken(32);
-            const expiresAt = new Date(Date.now() + this.securitySettings.activationTokenExpiry * 60 * 60 * 1000);
+            const expiresAt = new Date(Date.now() +
+                this.securitySettings.activationTokenExpiry * 60 * 60 * 1000);
             await this.authRepository.storeRegistrationWithToken(registerData.email, activationToken, {
                 passwordHash,
                 firstName: registerData.firstName,
@@ -161,7 +158,7 @@ export class AuthService {
             return {
                 success: true,
                 data: {
-                    message: "Registration successful. Please check your email to activate your account.",
+                    message: SUCCESS_MESSAGES.REGISTER_SUCCESS + ". Lütfen hesabınızı aktifleştirmek için e-postanızı kontrol edin.",
                 },
             };
         }
@@ -173,25 +170,27 @@ export class AuthService {
                 error,
                 email: registerData.email,
             });
-            throw this.createAuthError("REGISTRATION_FAILED", `Registration failed, ${error}`, 500);
+            throw this.createAuthError("REGISTRATION_FAILED", `Kayıt başarısız oldu: ${error}`, 500);
         }
     }
-    async activateAccount(activationData, ipAddress, userAgent) {
+    async activateAccount(activationData, ipAddress, userAgent, res) {
         try {
             const registrationData = await this.authRepository.findRegistrationByToken(activationData.token);
             if (!registrationData) {
-                throw this.createAuthError("INVALID_TOKEN", "Invalid or expired activation token", 400);
+                throw this.createAuthError("INVALID_TOKEN", AUTH_ERRORS.INVALID_TOKEN, 400);
             }
             const existingUser = await this.authRepository.findUserByEmail(registrationData.email);
             if (existingUser) {
-                throw this.createAuthError("EMAIL_ALREADY_EXISTS", "Account with this email already exists", 409);
+                throw this.createAuthError("EMAIL_ALREADY_EXISTS", AUTH_ERRORS.EMAIL_ALREADY_EXISTS, 409);
             }
             const userId = await this.authRepository.createUser({
                 email: registrationData.email,
                 passwordHash: registrationData.registrationData.passwordHash,
                 firstName: registrationData.registrationData.firstName,
                 lastName: registrationData.registrationData.lastName,
-                ...(registrationData.registrationData.phone && { phone: registrationData.registrationData.phone }),
+                ...(registrationData.registrationData.phone && {
+                    phone: registrationData.registrationData.phone,
+                }),
                 status: "active",
             });
             await this.authRepository.markEmailTokenAsUsed(activationData.token);
@@ -201,31 +200,27 @@ export class AuthService {
             });
             const user = await this.authRepository.findUserById(userId);
             if (!user) {
-                throw this.createAuthError("USER_CREATION_FAILED", "Failed to create user", 500);
+                throw this.createAuthError("USER_CREATION_FAILED", "Kullanıcı oluşturulamadı", 500);
             }
             await this.emailService.sendWelcomeEmail({ firstName: user.firstName, email: user.email }, null);
-            const tokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.role || "student", user.establishmentId || "", user.permissions || []);
+            const tokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);
             await this.logAuthEvent({
                 userId: user.id,
                 email: user.email,
                 action: "account_activation",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
+            this.cookieService.setTokenCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
             const response = {
                 user,
-                tokens: {
-                    accessToken: tokenPair.accessToken,
-                    refreshToken: tokenPair.refreshToken,
-                },
                 expiresIn: tokenPair.expiresIn,
             };
             return {
                 success: true,
                 data: response,
-                message: "Account activated successfully",
+                message: "Hesap başarıyla aktifleştirildi",
             };
         }
         catch (error) {
@@ -236,13 +231,13 @@ export class AuthService {
                 error,
                 token: activationData.token,
             });
-            throw this.createAuthError("ACTIVATION_FAILED", "Account activation failed", 500);
+            throw this.createAuthError("ACTIVATION_FAILED", "Hesap aktifleştirme başarısız oldu", 500);
         }
     }
     async forgotPassword(forgotData, ipAddress, userAgent) {
         try {
             const user = await this.authRepository.findUserByEmail(forgotData.email);
-            const successMessage = "If an account with this email exists, you will receive password reset instructions.";
+            const successMessage = "Bu e-posta adresine sahip bir hesap varsa, şifre sıfırlama talimatlarını alacaksınız.";
             if (!user) {
                 await this.logAuthEvent({
                     email: forgotData.email,
@@ -275,6 +270,7 @@ export class AuthService {
             const resetToken = this.tokenService.generatePasswordResetToken(user.id, user.email);
             const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/auth/reset-password?token=${resetToken}`;
             this.logger.info(resetUrl);
+            console.log(resetUrl);
             await this.emailService.sendPasswordResetEmail({
                 user: {
                     firstName: user.firstName,
@@ -289,7 +285,6 @@ export class AuthService {
                 action: "password_reset_request",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
             return {
@@ -305,22 +300,22 @@ export class AuthService {
                 error,
                 email: forgotData.email,
             });
-            throw this.createAuthError("FORGOT_PASSWORD_FAILED", "Password reset request failed", 500);
+            throw this.createAuthError("FORGOT_PASSWORD_FAILED", "Şifre sıfırlama isteği başarısız oldu", 500);
         }
     }
     async resetPassword(resetData, ipAddress, userAgent) {
         try {
             const tokenData = this.tokenService.verifySpecialToken(resetData.token, "password_reset");
             if (!tokenData) {
-                throw this.createAuthError("INVALID_TOKEN", "Invalid or expired password reset token", 400);
+                throw this.createAuthError("INVALID_TOKEN", AUTH_ERRORS.INVALID_TOKEN, 400);
             }
             const user = await this.authRepository.findUserById(tokenData.sub);
             if (!user) {
-                throw this.createAuthError("USER_NOT_FOUND", "User not found", 404);
+                throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
             const passwordValidation = this.passwordService.validatePasswordStrength(resetData.newPassword);
             if (!passwordValidation.isValid) {
-                throw this.createAuthError("WEAK_PASSWORD", "Password does not meet security requirements", 400, { errors: passwordValidation.errors });
+                throw this.createAuthError("WEAK_PASSWORD", AUTH_ERRORS.INVALID_PASSWORD_FORMAT, 400, { errors: passwordValidation.errors });
             }
             const passwordHash = await this.passwordService.hashPassword(resetData.newPassword);
             await this.authRepository.updateUserPassword(user.id, passwordHash);
@@ -331,13 +326,12 @@ export class AuthService {
                 action: "password_reset_success",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
             return {
                 success: true,
                 data: {
-                    message: "Password reset successfully. Please log in with your new password.",
+                    message: SUCCESS_MESSAGES.PASSWORD_CHANGED + ". Lütfen yeni şifrenizle giriş yapın.",
                 },
             };
         }
@@ -348,18 +342,18 @@ export class AuthService {
             this.logger.error("Password reset failed with unexpected error", {
                 error,
             });
-            throw this.createAuthError("PASSWORD_RESET_FAILED", "Password reset failed", 500);
+            throw this.createAuthError("PASSWORD_RESET_FAILED", "Şifre sıfırlama başarısız oldu", 500);
         }
     }
     async changePassword(userId, changeData, ipAddress, userAgent) {
         try {
             const user = await this.authRepository.findUserById(userId);
             if (!user) {
-                throw this.createAuthError("USER_NOT_FOUND", "User not found", 404);
+                throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
             const userWithPassword = await this.getUserWithPassword(userId);
             if (!userWithPassword) {
-                throw this.createAuthError("USER_NOT_FOUND", "User not found", 404);
+                throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
             const isCurrentPasswordValid = await this.passwordService.verifyPassword(changeData.currentPassword, userWithPassword.passwordHash);
             if (!isCurrentPasswordValid) {
@@ -369,15 +363,14 @@ export class AuthService {
                     action: "password_change",
                     ipAddress,
                     userAgent,
-                    establishmentId: user.establishmentId,
                     success: false,
                     failureReason: "Invalid current password",
                 });
-                throw this.createAuthError("INVALID_PASSWORD", "Current password is incorrect", 400);
+                throw this.createAuthError("INVALID_PASSWORD", "Mevcut şifre yanlış", 400);
             }
             const passwordValidation = this.passwordService.validatePasswordStrength(changeData.newPassword);
             if (!passwordValidation.isValid) {
-                throw this.createAuthError("WEAK_PASSWORD", "Password does not meet security requirements", 400, { errors: passwordValidation.errors });
+                throw this.createAuthError("WEAK_PASSWORD", AUTH_ERRORS.INVALID_PASSWORD_FORMAT, 400, { errors: passwordValidation.errors });
             }
             const newPasswordHash = await this.passwordService.hashPassword(changeData.newPassword);
             await this.authRepository.updateUserPassword(userId, newPasswordHash);
@@ -387,12 +380,11 @@ export class AuthService {
                 action: "password_change",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
             return {
                 success: true,
-                data: { message: "Password changed successfully" },
+                data: { message: SUCCESS_MESSAGES.PASSWORD_CHANGED },
             };
         }
         catch (error) {
@@ -403,36 +395,38 @@ export class AuthService {
                 error,
                 userId,
             });
-            throw this.createAuthError("PASSWORD_CHANGE_FAILED", "Password change failed", 500);
+            throw this.createAuthError("PASSWORD_CHANGE_FAILED", "Şifre değiştirme başarısız oldu", 500);
         }
     }
-    async refreshToken(refreshData, ipAddress, userAgent) {
+    async refreshToken(req, res, ipAddress, userAgent) {
         try {
-            const tokenData = await this.tokenService.verifyRefreshToken(refreshData.refreshToken);
+            const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+            if (!refreshToken) {
+                throw this.createAuthError("REFRESH_TOKEN_REQUIRED", AUTH_ERRORS.REFRESH_TOKEN_REQUIRED, 401);
+            }
+            const tokenData = await this.tokenService.verifyRefreshToken(refreshToken);
             if (!tokenData) {
-                throw this.createAuthError("INVALID_TOKEN", "Invalid or expired refresh token", 401);
+                throw this.createAuthError("INVALID_TOKEN", AUTH_ERRORS.INVALID_REFRESH_TOKEN, 401);
             }
             const user = await this.authRepository.findUserById(tokenData.sub);
             if (!user || user.status !== "active") {
                 await this.tokenService.revokeRefreshToken(refreshData.refreshToken);
-                throw this.createAuthError("USER_NOT_FOUND", "User not found or inactive", 404);
+                throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
-            const newTokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.role, user.establishmentId, user.permissions);
-            await this.tokenService.revokeRefreshToken(refreshData.refreshToken);
+            const newTokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);
+            await this.tokenService.revokeRefreshToken(refreshToken);
+            this.cookieService.setTokenCookies(res, newTokenPair.accessToken, newTokenPair.refreshToken);
             await this.logAuthEvent({
                 userId: user.id,
                 email: user.email,
                 action: "token_refresh",
                 ipAddress,
                 userAgent,
-                establishmentId: user.establishmentId,
                 success: true,
             });
             return {
                 success: true,
                 data: {
-                    accessToken: newTokenPair.accessToken,
-                    refreshToken: newTokenPair.refreshToken,
                     expiresIn: newTokenPair.expiresIn,
                 },
             };
@@ -444,13 +438,17 @@ export class AuthService {
             this.logger.error("Token refresh failed with unexpected error", {
                 error,
             });
-            throw this.createAuthError("TOKEN_REFRESH_FAILED", "Token refresh failed", 500);
+            throw this.createAuthError("TOKEN_REFRESH_FAILED", "Token yenileme başarısız oldu", 500);
         }
     }
-    async logout(userId, refreshToken, ipAddress, userAgent) {
+    async logout(userId, req, res, ipAddress, userAgent) {
         try {
             const user = await this.authRepository.findUserById(userId);
-            await this.tokenService.revokeRefreshToken(refreshToken);
+            const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+            if (refreshToken) {
+                await this.tokenService.revokeRefreshToken(refreshToken);
+            }
+            this.cookieService.clearAllAuthCookies(res);
             const logData = {
                 userId,
                 email: user?.email || "unknown",
@@ -459,13 +457,13 @@ export class AuthService {
                 userAgent,
                 success: true,
             };
-            if (user && user.establishmentId !== undefined) {
-                logData.establishmentId = user.establishmentId;
+            if (user && user.establishments && user.establishments?.length > 0) {
+                logData.establishmentId = user.establishments;
             }
             await this.logAuthEvent(logData);
             return {
                 success: true,
-                data: { message: "Logged out successfully" },
+                data: { message: SUCCESS_MESSAGES.LOGOUT_SUCCESS },
             };
         }
         catch (error) {
@@ -473,14 +471,14 @@ export class AuthService {
                 error,
                 userId,
             });
-            throw this.createAuthError("LOGOUT_FAILED", "Logout failed", 500);
+            throw this.createAuthError("LOGOUT_FAILED", "Çıkış başarısız oldu", 500);
         }
     }
     async getCurrentUser(userId) {
         try {
             const user = await this.authRepository.findUserById(userId);
             if (!user) {
-                throw this.createAuthError("USER_NOT_FOUND", "User not found", 404);
+                throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
             return {
                 success: true,
@@ -495,7 +493,7 @@ export class AuthService {
                 error,
                 userId,
             });
-            throw this.createAuthError("USER_FETCH_FAILED", "Failed to fetch user data", 500);
+            throw this.createAuthError("USER_FETCH_FAILED", "Kullanıcı verileri alınamadı", 500);
         }
     }
     async getUserWithPassword(userId) {

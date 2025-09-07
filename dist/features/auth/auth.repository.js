@@ -7,37 +7,50 @@ export class AuthRepository {
     }
     async findUserByEmail(email) {
         try {
-            const userQuery = `
-        SELECT u.*, e.id as establishment_id, e.name as establishment_name, e.business_name
-        FROM users u
-        LEFT JOIN establishments e ON u.establishment_id = e.id
-        WHERE u.email = $1
-      `;
-            const userResult = await this.db.query(userQuery, [email]);
-            if (userResult.rows.length === 0) {
+            const query = `
+      SELECT 
+        u.id,
+        u.email,
+        u.first_name,
+        u.last_name,
+        u.status,
+        u.email_verified,
+        u.last_login,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', e.id,
+              'name', e.name,
+              'businessName', e.business_name,
+              'role', ue.role,
+              'isPrimary', ue.is_primary,
+              'status', ue.status
+            ) ORDER BY ue.is_primary DESC, e.name ASC
+          ) FILTER (WHERE e.id IS NOT NULL),
+          '[]'::json
+        ) as establishments
+      FROM users u
+      LEFT JOIN user_establishments ue ON u.id = ue.user_id AND ue.status = 'active'
+      LEFT JOIN establishments e ON ue.establishment_id = e.id
+      WHERE u.email = $1
+      GROUP BY u.id, u.email, u.first_name, u.last_name, u.status, u.email_verified, u.last_login
+    `;
+            const result = await this.db.query(query, [email]);
+            if (result.rows.length === 0) {
                 return null;
             }
-            const user = userResult.rows[0];
-            const permissions = await this.getUserPermissions(user.id, user.role);
+            const user = result.rows[0];
+            const establishments = user.establishments;
             const authUser = {
                 id: user.id,
                 email: user.email,
                 firstName: user.first_name,
                 lastName: user.last_name,
-                role: user.role,
-                establishmentId: user.establishment_id,
                 status: user.status,
                 emailVerified: user.email_verified,
                 lastLogin: user.last_login,
-                permissions,
+                establishments,
             };
-            if (user.establishment_id) {
-                authUser.establishment = {
-                    id: user.establishment_id,
-                    name: user.establishment_name,
-                    businessName: user.business_name,
-                };
-            }
             return authUser;
         }
         catch (error) {
@@ -47,38 +60,51 @@ export class AuthRepository {
     }
     async findUserById(userId) {
         try {
-            const userQuery = `
-        SELECT u.*, e.id as establishment_id, e.name as establishment_name, e.business_name
-        FROM users u
-        LEFT JOIN establishments e ON u.establishment_id = e.id
-        WHERE u.id = $1
-      `;
-            const userResult = await this.db.query(userQuery, [userId]);
-            if (userResult.rows.length === 0) {
+            const query = `
+      SELECT 
+        u.id,
+        u.email,
+        u.first_name,
+        u.last_name,
+        u.status,
+        u.email_verified,
+        u.last_login,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', e.id,
+              'name', e.name,
+              'businessName', e.business_name,
+              'role', ue.role,
+              'isPrimary', ue.is_primary,
+              'status', ue.status
+            ) ORDER BY ue.is_primary DESC, e.name ASC
+          ) FILTER (WHERE e.id IS NOT NULL),
+          '[]'::json
+        ) as establishments
+      FROM users u
+      LEFT JOIN user_establishments ue ON u.id = ue.user_id AND ue.status = 'active'
+      LEFT JOIN establishments e ON ue.establishment_id = e.id
+      WHERE u.id = $1
+      GROUP BY u.id, u.email, u.first_name, u.last_name, u.status, u.email_verified, u.last_login
+    `;
+            const result = await this.db.query(query, [userId]);
+            if (result.rows.length === 0) {
                 return null;
             }
-            const user = userResult.rows[0];
-            const permissions = await this.getUserPermissions(user.id, user.role);
-            const foundUser = {
+            const user = result.rows[0];
+            const establishments = user.establishments;
+            const authUser = {
                 id: user.id,
                 email: user.email,
                 firstName: user.first_name,
                 lastName: user.last_name,
-                role: user.role,
-                establishmentId: user.establishment_id,
                 status: user.status,
                 emailVerified: user.email_verified,
                 lastLogin: user.last_login,
-                permissions,
+                establishments,
             };
-            if (user.establishment_id) {
-                foundUser.establishment = {
-                    id: user.establishment_id,
-                    name: user.establishment_name,
-                    businessName: user.business_name,
-                };
-            }
-            return foundUser;
+            return authUser;
         }
         catch (error) {
             this.logger.error("Failed to find user by ID", { error, userId });
@@ -158,33 +184,25 @@ export class AuthRepository {
             throw error;
         }
     }
-    async getUserPermissions(userId, role) {
+    async getRole(userId, establishmentId) {
         try {
             const query = `
-        SELECT DISTINCT p.name
-        FROM permissions p
-        JOIN role_permissions rp ON p.id = rp.permission_id
-        WHERE rp.role = $1
-      `;
-            const result = await this.db.query(query, [role]);
-            return result.rows.map((row) => row.name);
+      SELECT role
+      FROM user_establishments
+      WHERE user_id = $1 
+        AND establishment_id = $2
+        AND status = 'active'
+    `;
+            const values = [userId, establishmentId];
+            const result = await this.db.query(query, values);
+            if (result.rows.length > 0) {
+                return result.rows[0].role;
+            }
+            return null;
         }
         catch (error) {
-            this.logger.error("Failed to get user permissions", { error, userId, role });
-            return [];
-        }
-    }
-    async assignDefaultPermissions(userId, role) {
-        try {
-            this.logger.info("Default permissions assigned", { userId, role });
-        }
-        catch (error) {
-            this.logger.error("Failed to assign default permissions", {
-                error,
-                userId,
-                role,
-            });
-            throw error;
+            console.error("Error fetching user role:", error);
+            throw new Error("Failed to fetch user role");
         }
     }
     async createUserInvitation(invitation) {
@@ -384,7 +402,7 @@ export class AuthRepository {
             const tokenQuery = "SELECT 1 FROM email_activation_tokens WHERE email = $1 AND used = FALSE AND expires_at > CURRENT_TIMESTAMP";
             const [userResult, tokenResult] = await Promise.all([
                 this.db.query(userQuery, [email]),
-                this.db.query(tokenQuery, [email])
+                this.db.query(tokenQuery, [email]),
             ]);
             return userResult.rows.length > 0 || tokenResult.rows.length > 0;
         }
@@ -435,16 +453,21 @@ export class AuthRepository {
         WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP AND used = FALSE
       `, [token]);
             if (result.rows.length === 0) {
+                console.log(result.rows, "AMI");
                 return null;
             }
             const row = result.rows[0];
+            console.log(typeof result.rows[0].registration_data);
             return {
                 email: row.email,
-                registrationData: JSON.parse(row.registration_data),
+                registrationData: row.registration_data,
             };
         }
         catch (error) {
-            this.logger.error("Failed to find registration by token", { error, token });
+            this.logger.error("Failed to find registration by token", {
+                error,
+                token,
+            });
             return null;
         }
     }

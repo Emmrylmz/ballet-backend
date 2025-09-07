@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 
 import {
@@ -255,6 +256,9 @@ export class Application {
     });
     this.app.use(limiter);
 
+    // Cookie parsing (must be before auth middleware)
+    this.app.use(cookieParser());
+
     // Body parsing
     this.app.use(express.json({ limit: "10mb" }));
     this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -396,8 +400,9 @@ export class Application {
       const tokenService = authFactory.getTokenService();
       const authRepository = authFactory.getAuthRepository();
       const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
 
-      if (!tokenService || !authRepository || !passwordService) {
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
         throw new Error(
           "Auth module must be initialized before invitation module"
         );
@@ -409,7 +414,8 @@ export class Application {
         this.logger,
         tokenService,
         authRepository,
-        passwordService
+        passwordService,
+        cookieService
       );
 
       this.logger.info("Invitation module initialized successfully");

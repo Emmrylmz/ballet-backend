@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { DatabaseService } from '../../services/DatabaseService.js';
 import { LoggerService } from '../../services/LoggerService.js';
 import { TokenService } from '../auth/services/TokenService.js';
+import { CookieService } from '../auth/services/CookieService.js';
 import { AuthRepository } from '../auth/auth.repository.js';
 import { PasswordService } from '../auth/services/PasswordService.js';
 import { InvitationRepository } from './invitation.repository.js';
@@ -29,7 +30,8 @@ export class InvitationFactory {
     logger: LoggerService,
     tokenService: TokenService,
     authRepository: AuthRepository,
-    passwordService: PasswordService
+    passwordService: PasswordService,
+    cookieService: CookieService
   ): {
     invitationService: InvitationService;
     invitationController: InvitationController;
@@ -55,7 +57,8 @@ export class InvitationFactory {
       logger,
       tokenService,
       authRepository,
-      passwordService
+      passwordService,
+      cookieService
     );
 
     return {
@@ -84,13 +87,15 @@ export const createInvitationModule = (
   logger: LoggerService,
   tokenService: TokenService,
   authRepository: AuthRepository,
-  passwordService: PasswordService
+  passwordService: PasswordService,
+  cookieService: CookieService
 ): Router => {
   return createInvitationRoutes(
     db,
     logger,
     tokenService,
     authRepository,
-    passwordService
+    passwordService,
+    cookieService
   );
 };

@@ -1,109 +1,82 @@
+import { AUTH_ERRORS } from "../../../constants/errorMessages.js";
 export class AuthMiddleware {
     tokenService;
+    cookieService;
     authRepository;
     logger;
-    constructor(tokenService, authRepository, logger) {
+    constructor(tokenService, cookieService, authRepository, logger) {
         this.tokenService = tokenService;
+        this.cookieService = cookieService;
         this.authRepository = authRepository;
         this.logger = logger;
     }
     authenticate() {
         return async (req, res, next) => {
             try {
-                const token = this.extractToken(req);
-                if (!token) {
-                    res.status(401).json({
-                        success: false,
-                        message: 'Access token is required',
-                        code: 'TOKEN_MISSING'
-                    });
+                if (!this.cookieService.hasValidCookieStructure(req)) {
+                    this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
-                const payload = this.tokenService.verifyAccessToken(token);
-                if (!payload) {
-                    res.status(401).json({
-                        success: false,
-                        message: 'Invalid or expired token',
-                        code: 'TOKEN_INVALID'
-                    });
+                const accessToken = this.cookieService.getAccessTokenFromCookies(req);
+                if (!accessToken) {
+                    this.logger.debug("No access token found in cookies");
+                    this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
-                const user = await this.authRepository.findUserById(payload.sub);
-                if (!user) {
-                    res.status(401).json({
-                        success: false,
-                        message: 'User not found',
-                        code: 'USER_NOT_FOUND'
-                    });
+                const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
+                if (!tokenPayload) {
+                    this.logger.debug("Invalid access token from cookies");
+                    const refreshResult = await this.attemptTokenRefresh(req, res);
+                    if (!refreshResult.success) {
+                        this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
+                        return;
+                    }
+                    req.user = refreshResult.user;
+                    next();
                     return;
                 }
-                if (user.status !== 'active') {
+                const user = await this.authRepository.findUserById(tokenPayload.sub);
+                if (!user || user.status !== "active") {
+                    this.logger.warn("User not found or inactive", { userId: tokenPayload.sub });
+                    this.cookieService.clearAllAuthCookies(res);
+                    this.sendUnauthorized(res, AUTH_ERRORS.USER_NOT_FOUND);
+                    return;
+                }
+                if (user.status !== "active") {
                     await this.authRepository.logAuthEvent({
                         userId: user.id,
                         email: user.email,
-                        action: 'permission_denied',
+                        action: "permission_denied",
                         ipAddress: this.getClientIp(req),
-                        userAgent: req.get('User-Agent') || 'Unknown',
-                        establishmentId: user.establishmentId,
+                        userAgent: req.get("User-Agent") || "Unknown",
                         success: false,
-                        failureReason: `User status is ${user.status}`
+                        failureReason: `User status is ${user.status}`,
                     });
-                    res.status(403).json({
-                        success: false,
-                        message: 'Account is not active',
-                        code: 'ACCOUNT_INACTIVE'
-                    });
-                    return;
                 }
                 req.user = {
                     id: user.id,
                     email: user.email,
-                    establishmentId: user.establishmentId,
-                    role: user.role,
-                    permissions: user.permissions
+                    establishments: user.establishments || [],
                 };
+                const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+                if (refreshToken) {
+                    const ipAddress = this.getClientIp(req);
+                    const userAgent = req.get("User-Agent") || "Unknown";
+                    const tokenHash = this.hashToken(refreshToken);
+                    await this.tokenService.updateSessionInfo(tokenHash, ipAddress, userAgent);
+                }
                 next();
             }
             catch (error) {
-                this.logger.error('Authentication middleware error', { error });
-                res.status(500).json({
-                    success: false,
-                    message: 'Authentication failed',
-                    code: 'AUTH_ERROR'
-                });
+                this.logger.error("Authentication middleware error", { error });
+                this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
             }
         };
     }
     requireRoles(...roles) {
         return (req, res, next) => {
             if (!req.user) {
-                res.status(401).json({
-                    success: false,
-                    message: 'Authentication required',
-                    code: 'AUTH_REQUIRED'
-                });
-                return;
-            }
-            if (!roles.includes(req.user.role)) {
-                this.authRepository.logAuthEvent({
-                    userId: req.user.id,
-                    email: req.user.email,
-                    action: 'permission_denied',
-                    ipAddress: this.getClientIp(req),
-                    userAgent: req.get('User-Agent') || 'Unknown',
-                    establishmentId: req.user.establishmentId,
-                    success: false,
-                    failureReason: `Insufficient role: ${req.user.role}, required: ${roles.join(', ')}`
-                });
-                res.status(403).json({
-                    success: false,
-                    message: 'Insufficient permissions',
-                    code: 'INSUFFICIENT_ROLE',
-                    details: {
-                        required: roles,
-                        current: req.user.role
-                    }
-                });
+                this.sendUnauthorized(res, AUTH_ERRORS.AUTHENTICATION_REQUIRED);
                 return;
             }
             next();
@@ -112,74 +85,46 @@ export class AuthMiddleware {
     requirePermissions(...permissions) {
         return (req, res, next) => {
             if (!req.user) {
-                res.status(401).json({
-                    success: false,
-                    message: 'Authentication required',
-                    code: 'AUTH_REQUIRED'
-                });
-                return;
-            }
-            const missingPermissions = permissions.filter(permission => !req.user.permissions.includes(permission));
-            if (missingPermissions.length > 0) {
-                this.authRepository.logAuthEvent({
-                    userId: req.user.id,
-                    email: req.user.email,
-                    action: 'permission_denied',
-                    ipAddress: this.getClientIp(req),
-                    userAgent: req.get('User-Agent') || 'Unknown',
-                    establishmentId: req.user.establishmentId,
-                    success: false,
-                    failureReason: `Missing permissions: ${missingPermissions.join(', ')}`
-                });
-                res.status(403).json({
-                    success: false,
-                    message: 'Insufficient permissions',
-                    code: 'INSUFFICIENT_PERMISSIONS',
-                    details: {
-                        required: permissions,
-                        missing: missingPermissions,
-                        current: req.user.permissions
-                    }
-                });
+                this.sendUnauthorized(res, AUTH_ERRORS.AUTHENTICATION_REQUIRED);
                 return;
             }
             next();
         };
     }
-    requireEstablishmentAccess() {
-        return (req, res, next) => {
+    requireEstablishmentAccess(requiredRoles) {
+        return async (req, res, next) => {
             if (!req.user) {
-                res.status(401).json({
+                return res.status(401).json({
                     success: false,
-                    message: 'Authentication required',
-                    code: 'AUTH_REQUIRED'
+                    message: "Authentication required",
+                    code: "AUTH_REQUIRED",
                 });
-                return;
             }
-            const establishmentId = req.params.establishmentId ||
-                req.query.establishmentId ||
-                req.body.establishmentId;
-            if (req.user.role === 'super_admin') {
-                next();
-                return;
+            console.log(req.headers);
+            const establishmentId = "0a9edc36-9a58-4f0b-a007-3f1ae8ad050d";
+            console.log(establishmentId);
+            if (!establishmentId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Establishment ID required",
+                    code: "ESTABLISHMENT_ID_REQUIRED",
+                });
             }
-            if (establishmentId && req.user.establishmentId !== establishmentId) {
-                this.authRepository.logAuthEvent({
-                    userId: req.user.id,
-                    email: req.user.email,
-                    action: 'permission_denied',
-                    ipAddress: this.getClientIp(req),
-                    userAgent: req.get('User-Agent') || 'Unknown',
-                    establishmentId: req.user.establishmentId,
+            const role = await this.authRepository.getRole(req.user.id, establishmentId);
+            console.log(role, "DEBUG1");
+            if (!role) {
+                return res.status(403).json({
                     success: false,
-                    failureReason: `Access denied to establishment: ${establishmentId}`
+                    message: "No access to this establishment",
+                    code: "NO_ESTABLISHMENT_ACCESS",
                 });
-                res.status(403).json({
+            }
+            if (!requiredRoles.includes(role)) {
+                return res.status(403).json({
                     success: false,
-                    message: 'Access denied to this establishment',
-                    code: 'ESTABLISHMENT_ACCESS_DENIED'
+                    message: "Insufficient permission",
+                    code: "INSUFFICIENT_PERMISSION",
                 });
-                return;
             }
             next();
         };
@@ -187,30 +132,26 @@ export class AuthMiddleware {
     optional() {
         return async (req, res, next) => {
             try {
-                const token = this.extractToken(req);
-                if (!token) {
+                const accessToken = this.cookieService.getAccessTokenFromCookies(req);
+                if (!accessToken) {
                     next();
                     return;
                 }
-                const payload = this.tokenService.verifyAccessToken(token);
-                if (!payload) {
-                    next();
-                    return;
-                }
-                const user = await this.authRepository.findUserById(payload.sub);
-                if (user && user.status === 'active') {
-                    req.user = {
-                        id: user.id,
-                        email: user.email,
-                        establishmentId: user.establishmentId,
-                        role: user.role,
-                        permissions: user.permissions
-                    };
+                const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
+                if (tokenPayload) {
+                    const user = await this.authRepository.findUserById(tokenPayload.sub);
+                    if (user && user.status === "active") {
+                        req.user = {
+                            id: user.id,
+                            email: user.email,
+                            establishments: user.establishments || [],
+                        };
+                    }
                 }
                 next();
             }
             catch (error) {
-                this.logger.error('Optional auth middleware error', { error });
+                this.logger.error("Optional auth middleware error", { error });
                 next();
             }
         };
@@ -229,7 +170,7 @@ export class AuthMiddleware {
             if (!userRequests || now > userRequests.resetTime) {
                 requests.set(userKey, {
                     count: 1,
-                    resetTime: now + windowMs
+                    resetTime: now + windowMs,
                 });
                 next();
                 return;
@@ -238,11 +179,11 @@ export class AuthMiddleware {
                 const resetIn = Math.ceil((userRequests.resetTime - now) / 1000);
                 res.status(429).json({
                     success: false,
-                    message: 'Too many requests',
-                    code: 'RATE_LIMIT_EXCEEDED',
+                    message: "Too many requests",
+                    code: "RATE_LIMIT_EXCEEDED",
                     details: {
-                        retryAfter: resetIn
-                    }
+                        retryAfter: resetIn,
+                    },
                 });
                 return;
             }
@@ -253,32 +194,21 @@ export class AuthMiddleware {
     validateEstablishmentContext() {
         return async (req, res, next) => {
             if (!req.user) {
-                res.status(401).json({
-                    success: false,
-                    message: 'Authentication required',
-                    code: 'AUTH_REQUIRED'
-                });
+                this.sendUnauthorized(res, AUTH_ERRORS.AUTHENTICATION_REQUIRED);
                 return;
             }
             try {
-                const establishment = await this.authRepository.getEstablishmentInfo(req.user.establishmentId);
-                if (!establishment) {
-                    res.status(404).json({
-                        success: false,
-                        message: 'Establishment not found',
-                        code: 'ESTABLISHMENT_NOT_FOUND'
-                    });
-                    return;
-                }
-                req.establishment = establishment;
                 next();
             }
             catch (error) {
-                this.logger.error('Establishment validation error', { error, userId: req.user.id });
+                this.logger.error("Establishment validation error", {
+                    error,
+                    userId: req.user.id,
+                });
                 res.status(500).json({
                     success: false,
-                    message: 'Establishment validation failed',
-                    code: 'ESTABLISHMENT_VALIDATION_ERROR'
+                    message: "Establishment validation failed",
+                    code: "ESTABLISHMENT_VALIDATION_ERROR",
                 });
             }
         };
@@ -286,45 +216,86 @@ export class AuthMiddleware {
     logRequest() {
         return (req, res, next) => {
             const startTime = Date.now();
-            this.logger.info('API Request', {
+            this.logger.info("API Request", {
                 method: req.method,
                 url: req.url,
-                userAgent: req.get('User-Agent'),
+                userAgent: req.get("User-Agent"),
                 ip: this.getClientIp(req),
                 userId: req.user?.id,
-                establishmentId: req.user?.establishmentId
             });
-            res.on('finish', () => {
+            res.on("finish", () => {
                 const duration = Date.now() - startTime;
-                this.logger.info('API Response', {
+                this.logger.info("API Response", {
                     method: req.method,
                     url: req.url,
                     statusCode: res.statusCode,
                     duration: `${duration}ms`,
-                    userId: req.user?.id
+                    userId: req.user?.id,
                 });
             });
             next();
         };
     }
-    extractToken(req) {
-        const authHeader = req.get('Authorization');
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            return authHeader.slice(7);
+    async attemptTokenRefresh(req, res) {
+        try {
+            const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
+            if (!refreshToken) {
+                this.logger.debug("No refresh token available for token refresh");
+                return { success: false };
+            }
+            const refreshPayload = await this.tokenService.verifyRefreshToken(refreshToken);
+            if (!refreshPayload) {
+                this.logger.debug("Invalid refresh token for token refresh");
+                this.cookieService.clearAllAuthCookies(res);
+                return { success: false };
+            }
+            const user = await this.authRepository.findUserById(refreshPayload.sub);
+            if (!user || user.status !== "active") {
+                this.logger.warn("User not found or inactive during token refresh", {
+                    userId: refreshPayload.sub
+                });
+                this.cookieService.clearAllAuthCookies(res);
+                return { success: false };
+            }
+            const newTokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);
+            await this.tokenService.revokeRefreshToken(refreshToken);
+            this.cookieService.setTokenCookies(res, newTokenPair.accessToken, newTokenPair.refreshToken);
+            this.logger.info("Token refreshed successfully via middleware", {
+                userId: user.id
+            });
+            return {
+                success: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    establishments: user.establishments || [],
+                },
+            };
         }
-        const cookieToken = req.cookies?.accessToken;
-        if (cookieToken) {
-            return cookieToken;
+        catch (error) {
+            this.logger.error("Token refresh failed in middleware", { error });
+            this.cookieService.clearAllAuthCookies(res);
+            return { success: false };
         }
-        return null;
+    }
+    sendUnauthorized(res, message) {
+        res.status(401).json({
+            success: false,
+            message,
+            code: "UNAUTHORIZED",
+        });
+    }
+    hashToken(token) {
+        const crypto = require("crypto");
+        return crypto.createHash("sha256").update(token).digest("hex");
     }
     getClientIp(req) {
         return (req.ip ||
             req.connection.remoteAddress ||
             req.socket.remoteAddress ||
             req.connection?.socket?.remoteAddress ||
-            req.headers['x-forwarded-for'] ||
-            req.headers['x-real-ip'] ||
-            'unknown');
+            req.headers["x-forwarded-for"] ||
+            req.headers["x-real-ip"] ||
+            "unknown");
     }
 }

@@ -3,17 +3,15 @@ export interface AuthUser {
     email: string;
     firstName: string;
     lastName: string;
-    role: UserRole;
-    establishmentId: string;
     status: UserStatus;
     emailVerified: boolean;
     lastLogin?: Date;
-    permissions: string[];
-    establishment?: {
-        id: string;
-        name: string;
-        businessName: string;
-    };
+    establishments?: Establishment[];
+}
+export interface Establishment {
+    id: string;
+    name: string;
+    role: UserRole;
 }
 export interface LoginRequest {
     email: string;
@@ -22,10 +20,6 @@ export interface LoginRequest {
 }
 export interface LoginResponse {
     user: AuthUser;
-    tokens: {
-        accessToken: string;
-        refreshToken: string;
-    };
     expiresIn: number;
 }
 export interface RegisterRequest {
@@ -54,14 +48,12 @@ export interface ChangePasswordRequest {
     newPassword: string;
 }
 export interface RefreshTokenRequest {
-    refreshToken: string;
+    refreshToken?: string;
 }
 export interface JWTPayload {
     sub: string;
     email: string;
-    role: UserRole;
-    establishmentId: string;
-    permissions: string[];
+    establishments?: Establishment[];
     tokenType: "access" | "refresh";
     iat: number;
     exp: number;
@@ -77,7 +69,7 @@ export interface UserInvitation {
     status: "pending" | "accepted" | "expired";
     createdAt: Date;
 }
-export type UserRole = "super_admin" | "admin" | "instructor" | "student" | "parent";
+export type UserRole = "admin" | "manager" | "instructor" | "student";
 export type UserStatus = "active" | "inactive" | "pending" | "suspended";
 export interface Permission {
     name: string;

@@ -1,13 +1,12 @@
-import { Request, Response } from 'express';
-import { AuthService } from './auth.service.js';
-import { LoggerService } from '../../services/LoggerService.js';
+import { Request, Response } from "express";
+import { AuthService } from "./auth.service.js";
+import { LoggerService } from "../../services/LoggerService.js";
+import { Establishment } from "./auth.types.js";
 interface AuthenticatedRequest extends Request {
     user?: {
         id: string;
         email: string;
-        establishmentId: string;
-        role: string;
-        permissions: string[];
+        establishments: Establishment[];
     };
 }
 export declare class AuthController {

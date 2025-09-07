@@ -25,8 +25,7 @@ export declare class AuthRepository {
         lastLogin: Date;
         passwordHash: string;
     }>): Promise<void>;
-    getUserPermissions(userId: string, role: UserRole): Promise<string[]>;
-    assignDefaultPermissions(userId: string, role: UserRole): Promise<void>;
+    getRole(userId: string, establishmentId: string): Promise<UserRole | null>;
     createUserInvitation(invitation: Omit<UserInvitation, "id" | "createdAt">): Promise<string>;
     findUserInvitation(token: string): Promise<UserInvitation | null>;
     updateUserInvitation(id: string, updates: Partial<Pick<UserInvitation, "status">>): Promise<void>;

@@ -9,6 +9,7 @@ import { AuthMiddleware } from "../auth/middleware/AuthMiddleware.js";
 import { EstablishmentMiddleware } from "../../middleware/EstablishmentMiddleware.js";
 import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
 import { TokenService } from "../auth/services/TokenService.js";
+import { CookieService } from "../auth/services/CookieService.js";
 import { AuthRepository } from "../auth/auth.repository.js";
 import Joi from "joi";
 
@@ -85,7 +86,9 @@ const createInvitationRoutes = (
   db: DatabaseService,
   logger: LoggerService,
   tokenService: TokenService,
-  authRepository: AuthRepository
+  authRepository: AuthRepository,
+  passwordService: any,
+  cookieService: CookieService
 ): Router => {
   const router = Router();
 
@@ -94,6 +97,7 @@ const createInvitationRoutes = (
   const invitationService = new InvitationService(
     invitationRepository,
     authRepository,
+    passwordService,
     logger
   );
   const controller = new InvitationController(invitationService, logger);
@@ -101,6 +105,7 @@ const createInvitationRoutes = (
   // Initialize middleware
   const authMiddleware = new AuthMiddleware(
     tokenService,
+    cookieService,
     authRepository,
     logger
   );

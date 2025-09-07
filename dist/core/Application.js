@@ -3,12 +3,16 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import { DatabaseService, } from "../services/DatabaseService.js";
 import { LoggerService } from "../services/LoggerService.js";
 import { errorHandler } from "../middleware/errorHandler.js";
 import swaggerSpec from "../config/swagger.js";
 import { AuthFactory } from "../features/auth/auth.factory.js";
+import { InvitationFactory } from "../features/invitations/invitation.factory.js";
+import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
+import { InvitationRepository } from "../features/invitations/invitation.repository.js";
 export class Application {
     app;
     server = null;
@@ -17,6 +21,7 @@ export class Application {
     config;
     isStarted = false;
     authMiddleware;
+    invitationCleanupService;
     constructor(config) {
         this.config = config;
         this.app = express();
@@ -52,7 +57,7 @@ export class Application {
             await this.stopServer();
             await this.stopServices();
             this.isStarted = false;
-            this.logger.info("Application stopped successfully");
+            this.logger.info("Application stopped successfully.");
         }
         catch (error) {
             this.logger.error("Error during application shutdown", { error });
@@ -95,9 +100,27 @@ export class Application {
         this.database.on("reconnected", () => {
             this.logger.info("Database reconnected");
         });
+        try {
+            const invitationRepository = new InvitationRepository(this.database);
+            this.invitationCleanupService = new InvitationCleanupService(invitationRepository, this.logger);
+            this.invitationCleanupService.start();
+            this.logger.info("Invitation cleanup service started");
+        }
+        catch (error) {
+            this.logger.warn("Failed to start invitation cleanup service", { error });
+        }
     }
     async stopServices() {
         this.logger.info("Stopping services...");
+        try {
+            if (this.invitationCleanupService) {
+                this.invitationCleanupService.stop();
+                this.logger.info("Invitation cleanup service stopped");
+            }
+        }
+        catch (error) {
+            this.logger.error("Error stopping invitation cleanup service", { error });
+        }
         try {
             await this.database.stop();
             this.logger.info("Database service stopped");
@@ -133,6 +156,7 @@ export class Application {
                 "X-Requested-With",
                 "Accept",
                 "Origin",
+                "X-Establishment-ID",
             ],
         };
         this.app.use(cors(corsOptions));
@@ -144,6 +168,7 @@ export class Application {
             },
         });
         this.app.use(limiter);
+        this.app.use(cookieParser());
         this.app.use(express.json({ limit: "10mb" }));
         this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
         this.app.use(this.logger.createRequestLogger());
@@ -178,10 +203,19 @@ export class Application {
     async loadExistingRoutes() {
         await this.setupAuthModule();
         const routes = [
-            { path: '/api/v1/auth', module: 'auth', isAuth: true },
-            { path: '/api/v1/dashboard', module: '../features/dashboard/dashboard.routes.js', isAuth: false },
+            { path: "/api/v1/auth", module: "auth", isAuth: true },
+            {
+                path: "/api/v1/invitations",
+                module: "invitations",
+                isInvitation: true,
+            },
+            {
+                path: "/api/v1/dashboard",
+                module: "../features/dashboard/dashboard.routes.js",
+                isAuth: false,
+            },
         ];
-        for (const { path, module, isAuth } of routes) {
+        for (const { path, module, isAuth, isInvitation } of routes) {
             try {
                 if (isAuth) {
                     const authFactory = AuthFactory.getInstance();
@@ -191,10 +225,17 @@ export class Application {
                         this.logger.info(`Loaded auth routes: ${path}`);
                     }
                 }
+                else if (isInvitation) {
+                    const invitationRoutes = await this.setupInvitationModule();
+                    if (invitationRoutes) {
+                        this.app.use(path, invitationRoutes);
+                        this.logger.info(`Loaded invitation routes: ${path}`);
+                    }
+                }
                 else {
                     const routeModule = await import(module);
                     const createRoutes = routeModule.default;
-                    if (createRoutes && typeof createRoutes === 'function') {
+                    if (createRoutes && typeof createRoutes === "function") {
                         const router = createRoutes(this.database, this.logger);
                         this.app.use(path, router);
                         this.logger.info(`Loaded route: ${path}`);
@@ -205,7 +246,9 @@ export class Application {
                 }
             }
             catch (error) {
-                this.logger.debug(`Skipped route ${path} - module not available`, { error });
+                this.logger.debug(`Skipped route ${path} - module not available`, {
+                    error,
+                });
             }
         }
     }
@@ -219,13 +262,32 @@ export class Application {
                 frontendUrl: this.config.auth.frontendUrl,
                 companyName: this.config.auth.companyName,
                 supportEmail: this.config.auth.supportEmail,
-                securitySettings
+                securitySettings,
             });
             this.authMiddleware = authModule.authMiddleware;
-            this.logger.info('Auth module initialized successfully');
+            this.logger.info("Auth module initialized successfully");
         }
         catch (error) {
-            this.logger.error('Failed to setup auth module', { error });
+            this.logger.error("Failed to setup auth module", { error });
+            throw error;
+        }
+    }
+    async setupInvitationModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const passwordService = authFactory.getPasswordService();
+            if (!tokenService || !authRepository || !passwordService) {
+                throw new Error("Auth module must be initialized before invitation module");
+            }
+            const invitationFactory = InvitationFactory.getInstance();
+            const invitationModule = invitationFactory.createInvitationModule(this.database, this.logger, tokenService, authRepository, passwordService);
+            this.logger.info("Invitation module initialized successfully");
+            return invitationModule.invitationRoutes;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup invitation module", { error });
             throw error;
         }
     }
@@ -238,12 +300,16 @@ export class Application {
     }
     async startServer() {
         return new Promise((resolve, reject) => {
-            this.server = this.app.listen(this.config.port, () => {
+            this.server = this.app.listen(8001, () => {
                 this.logger.info(`HTTP server listening on port ${this.config.port}`);
                 resolve();
             });
             this.server.on("error", (error) => {
                 this.logger.error("Server error", { error });
+                if (error.code === "EADDRINUSE") {
+                    this.logger.error(`Port ${this.config.port} is already in use. Exiting...`);
+                    process.exit(1);
+                }
                 reject(error);
             });
         });
@@ -270,7 +336,7 @@ export class Application {
             this.logger.info(`Received ${signal}, starting graceful shutdown...`);
             try {
                 await this.stop();
-                process.exit(0);
+                setTimeout(() => process.exit(0), 100);
             }
             catch (error) {
                 this.logger.error("Error during graceful shutdown", { error });
@@ -279,6 +345,9 @@ export class Application {
         };
         process.on("SIGTERM", () => shutdown("SIGTERM"));
         process.on("SIGINT", () => shutdown("SIGINT"));
+        process.on("SIGQUIT", () => shutdown("SIGQUIT"));
+        process.on("SIGHUP", () => shutdown("SIGHUP"));
+        process.on("SIGUSR2", () => shutdown("SIGUSR2"));
         process.on("uncaughtException", (error) => {
             this.logger.error("Uncaught Exception", { error });
             process.exit(1);

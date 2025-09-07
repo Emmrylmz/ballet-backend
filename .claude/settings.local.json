@@ -5,7 +5,17 @@
       "Bash(docker exec:*)",
       "Bash(npm run lint:*)",
       "Bash(npx tsc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(PORT=8002 npm start)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(PORT=8003 npm run dev)",
+      "Bash(PORT=8004 npm run dev)",
+      "Bash(PORT=8005 npm run dev)",
+      "Bash(PORT=8006 npm run dev)",
+      "Bash(PORT=8007 npm run dev)"
     ],
     "deny": [],
     "ask": []

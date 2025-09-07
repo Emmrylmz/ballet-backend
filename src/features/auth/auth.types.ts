@@ -25,10 +25,6 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   user: AuthUser;
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-  };
   expiresIn: number;
 }
 
@@ -63,7 +59,7 @@ export interface ChangePasswordRequest {
 }
 
 export interface RefreshTokenRequest {
-  refreshToken: string;
+  refreshToken?: string; // Optional since we'll read from cookies
 }
 
 export interface JWTPayload {

@@ -1,11 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
+import { Request, Response, NextFunction } from "express";
+import Joi from "joi";
 export interface ValidationError {
     field: string;
     message: string;
 }
 export declare class ValidationMiddleware {
-    static validate(schema: Joi.ObjectSchema, property?: 'body' | 'query' | 'params'): (req: Request, res: Response, next: NextFunction) => void;
+    static validate(schema: Joi.ObjectSchema, property?: "body" | "query" | "params"): (req: Request, res: Response, next: NextFunction) => void;
     static validateQuery(schema: Joi.ObjectSchema): (req: Request, res: Response, next: NextFunction) => void;
     static validateParams(schema: Joi.ObjectSchema): (req: Request, res: Response, next: NextFunction) => void;
     static validateBody(schema: Joi.ObjectSchema): (req: Request, res: Response, next: NextFunction) => void;
