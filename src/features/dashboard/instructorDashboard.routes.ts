@@ -9,6 +9,7 @@ import { AuthMiddleware } from "../auth/middleware/AuthMiddleware.js";
 import { EstablishmentMiddleware } from "../../middleware/EstablishmentMiddleware.js";
 import { TokenService } from "../auth/services/TokenService.js";
 import { AuthRepository } from "../auth/auth.repository.js";
+import { CookieService } from "../auth/services/CookieService.js";
 import Joi from "joi";
 
 // Validation schemas
@@ -26,7 +27,8 @@ const createInstructorDashboardRoutes = (
   db: DatabaseService,
   logger: LoggerService,
   tokenService: TokenService,
-  authRepository: AuthRepository
+  authRepository: AuthRepository,
+  cookieService: CookieService
 ): Router => {
   const router = Router();
 
@@ -38,10 +40,11 @@ const createInstructorDashboardRoutes = (
   // Initialize middleware
   const authMiddleware = new AuthMiddleware(
     tokenService,
+    cookieService,
     authRepository,
     logger
   );
-  const establishmentMiddleware = new EstablishmentMiddleware(logger);
+  const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
 
   // Apply authentication and establishment context to all routes
   router.use(authMiddleware.authenticate());

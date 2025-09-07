@@ -121,7 +121,7 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
   }
 
   /**
-   * Get all class templates with filters
+   *  all class templates with filters
    */
   async getClassTemplates(
     establishmentId: string,
@@ -307,19 +307,21 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
    */
   async createClassSession(
     establishmentId: string,
-    session: CreateClassSessionRequest
+    session: CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: string }
   ): Promise<ClassSession> {
     const result = await this.db.query(
       `
       INSERT INTO class_sessions (
         establishment_id, class_template_id, instructor_id, session_date,
         start_time, end_time, capacity, notes, is_recurring,
-        recurrence_frequency, recurrence_days_of_week, recurrence_end_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        recurrence_frequency, recurrence_days_of_week, recurrence_end_date,
+        cohort_id, override_instructor_id, session_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id, establishment_id, class_template_id, instructor_id,
                 session_date, start_time, end_time, capacity, status,
                 notes, is_recurring, recurrence_frequency, recurrence_days_of_week,
-                recurrence_end_date, parent_session_id, created_at, updated_at
+                recurrence_end_date, parent_session_id, cohort_id, override_instructor_id, 
+                session_type, created_at, updated_at
     `,
       [
         establishmentId,
@@ -334,6 +336,9 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
         session.recurrenceFrequency || null,
         session.recurrenceDaysOfWeek || null,
         session.recurrenceEndDate || null,
+        session.cohortId || null,
+        session.overrideInstructorId || null,
+        session.sessionType || 'regular',
       ]
     );
 
@@ -354,13 +359,18 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
              cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
              cs.notes, cs.is_recurring, cs.recurrence_frequency, 
              cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
+             cs.cohort_id, cs.override_instructor_id, cs.session_type,
              cs.created_at, cs.updated_at,
              ct.title as template_title,
+             c.name as cohort_name,
              CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+             CONCAT(override_u.first_name, ' ', override_u.last_name) as override_instructor_name,
              COALESCE(enrollment_count.count, 0) as enrollment_count
       FROM class_sessions cs
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+      LEFT JOIN cohorts c ON cs.cohort_id = c.id
       LEFT JOIN users u ON cs.instructor_id = u.id
+      LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
       LEFT JOIN (
         SELECT session_id, COUNT(*) as count
         FROM session_enrollments
@@ -384,7 +394,7 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
    */
   async getClassSessions(
     establishmentId: string,
-    filters: ClassSessionFilters = {}
+    filters: ClassSessionFilters & { cohortId?: string } = {}
   ): Promise<{ sessions: ClassSession[]; total: number }> {
     let whereConditions = ["cs.establishment_id = $1"];
     let queryParams: any[] = [establishmentId];
@@ -403,7 +413,7 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
     }
 
     if (filters.instructorId) {
-      whereConditions.push(`cs.instructor_id = $${paramIndex}`);
+      whereConditions.push(`(cs.instructor_id = $${paramIndex} OR cs.override_instructor_id = $${paramIndex})`);
       queryParams.push(filters.instructorId);
       paramIndex++;
     }
@@ -417,6 +427,12 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
     if (filters.classTemplateId) {
       whereConditions.push(`cs.class_template_id = $${paramIndex}`);
       queryParams.push(filters.classTemplateId);
+      paramIndex++;
+    }
+
+    if (filters.cohortId) {
+      whereConditions.push(`cs.cohort_id = $${paramIndex}`);
+      queryParams.push(filters.cohortId);
       paramIndex++;
     }
 
@@ -439,13 +455,18 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
          cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
          cs.notes, cs.is_recurring, cs.recurrence_frequency, 
          cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
+         cs.cohort_id, cs.override_instructor_id, cs.session_type,
          cs.created_at, cs.updated_at,
          ct.title as template_title,
+         c.name as cohort_name,
          CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+         CONCAT(override_u.first_name, ' ', override_u.last_name) as override_instructor_name,
          COALESCE(enrollment_count.count, 0) as enrollment_count
   FROM class_sessions cs
   LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+  LEFT JOIN cohorts c ON cs.cohort_id = c.id
   LEFT JOIN users u ON cs.instructor_id = u.id
+  LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
   LEFT JOIN (
     SELECT session_id, COUNT(*) as count
     FROM session_enrollments
@@ -478,28 +499,33 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
 
     const result = await this.db.query(
       `
-      SELECT cs.id, cs.establishment_id, cs.class_template_id, cs.instructor_id,
-             cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
-             cs.notes, cs.is_recurring, cs.recurrence_frequency, 
-             cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
-             cs.created_at, cs.updated_at,
-             ct.title as template_title,
-             i.name as instructor_name,
-             COALESCE(enrollment_count.count, 0) as enrollment_count
-      FROM class_sessions cs
-      LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN instructors i ON cs.instructor_id = i.id
-      LEFT JOIN (
-        SELECT session_id, COUNT(*) as count
-        FROM session_enrollments
-        WHERE is_waitlist = false
-        GROUP BY session_id
-      ) enrollment_count ON cs.id = enrollment_count.session_id
-      WHERE cs.establishment_id = $1 
-        AND cs.session_date >= CURRENT_DATE 
-        AND cs.session_date <= $2
-        AND cs.status = 'scheduled'
-      ORDER BY cs.session_date ASC, cs.start_time ASC
+    SELECT cs.id, cs.establishment_id, cs.class_template_id, cs.instructor_id,
+           cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
+           cs.notes, cs.is_recurring, cs.recurrence_frequency, 
+           cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
+           cs.cohort_id, cs.override_instructor_id, cs.session_type,
+           cs.created_at, cs.updated_at,
+           ct.title as template_title,
+           c.name as cohort_name,
+           CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+           CONCAT(override_u.first_name, ' ', override_u.last_name) as override_instructor_name,
+           COALESCE(enrollment_count.count, 0) as enrollment_count
+    FROM class_sessions cs
+    LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+    LEFT JOIN cohorts c ON cs.cohort_id = c.id
+    LEFT JOIN users u ON cs.instructor_id = u.id
+    LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
+    LEFT JOIN (
+      SELECT session_id, COUNT(*) as count
+      FROM session_enrollments
+      WHERE is_waitlist = false
+      GROUP BY session_id
+    ) enrollment_count ON cs.id = enrollment_count.session_id
+    WHERE cs.establishment_id = $1 
+      AND cs.session_date >= CURRENT_DATE 
+      AND cs.session_date <= $2
+      AND cs.status = 'scheduled'
+    ORDER BY cs.session_date ASC, cs.start_time ASC
     `,
       [establishmentId, endDate.toISOString().split("T")[0]]
     );
@@ -597,35 +623,37 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
   async enrollStudent(
     establishmentId: string,
     sessionId: string,
-    studentId: string,
+    studentId: string, // This is actually a user_id
     isWaitlist: boolean = false
   ): Promise<SessionEnrollment> {
     const result = await this.db.query(
       `
-      INSERT INTO session_enrollments (establishment_id, session_id, student_id, is_waitlist)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, establishment_id, session_id, student_id, enrollment_date, is_waitlist
+    INSERT INTO session_enrollments (establishment_id, session_id, student_id, is_waitlist)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, establishment_id, session_id, student_id, enrollment_date, is_waitlist
     `,
       [establishmentId, sessionId, studentId, isWaitlist]
     );
 
     const enrollment = result.rows[0];
 
-    // Get student details
-    const studentResult = await this.db.query(
-      `SELECT name, email FROM students WHERE id = $1`,
+    // Get user details (assuming student_id is actually user_id)
+    const userResult = await this.db.query(
+      `SELECT CONCAT(first_name, ' ', last_name) as name, email 
+     FROM users 
+     WHERE id = $1`,
       [studentId]
     );
 
-    const student = studentResult.rows[0];
+    const user = userResult.rows[0];
 
     return {
       id: enrollment.id,
       establishmentId: enrollment.establishment_id,
       sessionId: enrollment.session_id,
       studentId: enrollment.student_id,
-      studentName: student.name,
-      studentEmail: student.email,
+      studentName: user.name,
+      studentEmail: user.email,
       enrollmentDate: enrollment.enrollment_date,
       isWaitlist: enrollment.is_waitlist,
     };
@@ -659,13 +687,14 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
   ): Promise<SessionEnrollment[]> {
     const result = await this.db.query(
       `
-      SELECT se.id, se.establishment_id, se.session_id, se.student_id,
-             se.enrollment_date, se.is_waitlist,
-             s.name as student_name, s.email as student_email
-      FROM session_enrollments se
-      JOIN students s ON se.student_id = s.id
-      WHERE se.establishment_id = $1 AND se.session_id = $2
-      ORDER BY se.is_waitlist ASC, se.enrollment_date ASC
+    SELECT se.id, se.establishment_id, se.session_id, se.student_id,
+           se.enrollment_date, se.is_waitlist,
+           CONCAT(u.first_name, ' ', u.last_name) as student_name, 
+           u.email as student_email
+    FROM session_enrollments se
+    JOIN users u ON se.student_id = u.id
+    WHERE se.establishment_id = $1 AND se.session_id = $2
+    ORDER BY se.is_waitlist ASC, se.enrollment_date ASC
     `,
       [establishmentId, sessionId]
     );
@@ -683,11 +712,141 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
   }
 
   /**
+   * Create multiple class sessions in bulk
+   */
+  async createBulkClassSessions(
+    establishmentId: string,
+    sessions: (CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: string })[]
+  ): Promise<ClassSession[]> {
+    const client: PoolClient = await this.db.getClient();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const createdSessions: ClassSession[] = [];
+      
+      for (const session of sessions) {
+        const result = await client.query(
+          `
+          INSERT INTO class_sessions (
+            establishment_id, class_template_id, instructor_id, session_date,
+            start_time, end_time, capacity, notes, is_recurring,
+            recurrence_frequency, recurrence_days_of_week, recurrence_end_date,
+            cohort_id, override_instructor_id, session_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          RETURNING id, establishment_id, class_template_id, instructor_id,
+                    session_date, start_time, end_time, capacity, status,
+                    notes, is_recurring, recurrence_frequency, recurrence_days_of_week,
+                    recurrence_end_date, parent_session_id, cohort_id, override_instructor_id, 
+                    session_type, created_at, updated_at
+        `,
+          [
+            establishmentId,
+            session.classTemplateId || null,
+            session.instructorId || null,
+            session.sessionDate,
+            session.startTime,
+            session.endTime || null,
+            session.capacity || 12,
+            session.notes || null,
+            session.isRecurring || false,
+            session.recurrenceFrequency || null,
+            session.recurrenceDaysOfWeek || null,
+            session.recurrenceEndDate || null,
+            session.cohortId || null,
+            session.overrideInstructorId || null,
+            session.sessionType || 'regular',
+          ]
+        );
+        
+        const mappedSession = await this.mapClassSessionRow(result.rows[0]);
+        createdSessions.push(mappedSession);
+      }
+      
+      await client.query('COMMIT');
+      return createdSessions;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Enroll multiple users in a session (bulk enrollment)
+   */
+  async bulkEnrollUsersInSession(
+    establishmentId: string,
+    sessionId: string,
+    userIds: string[],
+    isWaitlist: boolean = false
+  ): Promise<SessionEnrollment[]> {
+    const client: PoolClient = await this.db.getClient();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const enrollments: SessionEnrollment[] = [];
+      
+      for (const userId of userIds) {
+        // Check if already enrolled
+        const existingResult = await client.query(
+          'SELECT 1 FROM session_enrollments WHERE establishment_id = $1 AND session_id = $2 AND student_id = $3',
+          [establishmentId, sessionId, userId]
+        );
+        
+        if (existingResult.rows.length > 0) {
+          continue; // Skip if already enrolled
+        }
+        
+        const result = await client.query(
+          `
+          INSERT INTO session_enrollments (establishment_id, session_id, student_id, is_waitlist)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, establishment_id, session_id, student_id, enrollment_date, is_waitlist
+          `,
+          [establishmentId, sessionId, userId, isWaitlist]
+        );
+        
+        const enrollment = result.rows[0];
+        
+        // Get user details
+        const userResult = await client.query(
+          'SELECT CONCAT(first_name, \' \', last_name) as name, email FROM users WHERE id = $1',
+          [userId]
+        );
+        
+        const user = userResult.rows[0];
+        
+        enrollments.push({
+          id: enrollment.id,
+          establishmentId: enrollment.establishment_id,
+          sessionId: enrollment.session_id,
+          studentId: enrollment.student_id,
+          studentName: user.name,
+          studentEmail: user.email,
+          enrollmentDate: enrollment.enrollment_date,
+          isWaitlist: enrollment.is_waitlist,
+        });
+      }
+      
+      await client.query('COMMIT');
+      return enrollments;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Get student's enrolled sessions
    */
   async getStudentEnrolledSessions(
     establishmentId: string,
-    studentId: string,
+    studentId: string, // This is actually a user_id
     includeCompleted: boolean = false
   ): Promise<StudentEnrolledSession[]> {
     let statusCondition = includeCompleted
@@ -696,16 +855,20 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
 
     const result = await this.db.query(
       `
-      SELECT se.session_id, se.enrollment_date, se.is_waitlist,
-             cs.session_date, cs.start_time, cs.end_time, cs.status,
-             ct.title as template_title,
-             i.name as instructor_name
-      FROM session_enrollments se
-      JOIN class_sessions cs ON se.session_id = cs.id
-      LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN instructors i ON cs.instructor_id = i.id
-      WHERE se.establishment_id = $1 AND se.student_id = $2 ${statusCondition}
-      ORDER BY cs.session_date ASC, cs.start_time ASC
+    SELECT se.session_id, se.enrollment_date, se.is_waitlist,
+           cs.session_date, cs.start_time, cs.end_time, cs.status, cs.cohort_id, cs.session_type,
+           ct.title as template_title,
+           c.name as cohort_name,
+           CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+           CONCAT(override_u.first_name, ' ', override_u.last_name) as override_instructor_name
+    FROM session_enrollments se
+    JOIN class_sessions cs ON se.session_id = cs.id
+    LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+    LEFT JOIN cohorts c ON cs.cohort_id = c.id
+    LEFT JOIN users u ON cs.instructor_id = u.id
+    LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
+    WHERE se.establishment_id = $1 AND se.student_id = $2 ${statusCondition}
+    ORDER BY cs.session_date ASC, cs.start_time ASC
     `,
       [establishmentId, studentId]
     );
@@ -716,7 +879,10 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
       startTime: row.start_time,
       endTime: row.end_time,
       templateTitle: row.template_title || "Custom Session",
-      instructorName: row.instructor_name,
+      cohortName: row.cohort_name,
+      cohortId: row.cohort_id,
+      sessionType: row.session_type || 'regular',
+      instructorName: row.override_instructor_name || row.instructor_name,
       status: row.status,
       isWaitlist: row.is_waitlist,
       enrollmentDate: row.enrollment_date,
@@ -865,39 +1031,47 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
   ): Promise<CalendarEvent[]> {
     const result = await this.db.query(
       `
-      SELECT cs.id, cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
-             ct.title, ct.class_type, ct.skill_level,
-             i.name as instructor_name,
-             COALESCE(enrollment_count.count, 0) as enrollment_count
-      FROM class_sessions cs
-      LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN instructors i ON cs.instructor_id = i.id
-      LEFT JOIN (
-        SELECT session_id, COUNT(*) as count
-        FROM session_enrollments
-        WHERE is_waitlist = false
-        GROUP BY session_id
-      ) enrollment_count ON cs.id = enrollment_count.session_id
-      WHERE cs.establishment_id = $1
-        AND cs.session_date >= $2
-        AND cs.session_date <= $3
-      ORDER BY cs.session_date ASC, cs.start_time ASC
+    SELECT cs.id, cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
+           cs.cohort_id, cs.session_type,
+           ct.title, ct.class_type, ct.skill_level,
+           c.name as cohort_name,
+           CONCAT(override_u.first_name, ' ', override_u.last_name) as override_instructor_name,
+           CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+           COALESCE(enrollment_count.count, 0) as enrollment_count
+    FROM class_sessions cs
+    LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+    LEFT JOIN cohorts c ON cs.cohort_id = c.id
+    LEFT JOIN users u ON cs.instructor_id = u.id
+    LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
+    LEFT JOIN (
+      SELECT session_id, COUNT(*) as count
+      FROM session_enrollments
+      WHERE is_waitlist = false
+      GROUP BY session_id
+    ) enrollment_count ON cs.id = enrollment_count.session_id
+    WHERE cs.establishment_id = $1
+      AND cs.session_date >= $2
+      AND cs.session_date <= $3
+    ORDER BY cs.session_date ASC, cs.start_time ASC
     `,
       [establishmentId, startDate, endDate]
     );
 
     return result.rows.map((row: any) => ({
       id: row.id,
-      title: row.title || "Custom Session",
+      title: row.cohort_name || row.title || "Custom Session",
       date: row.session_date,
       startTime: row.start_time,
       endTime: row.end_time,
-      instructorName: row.instructor_name,
+      instructorName: row.override_instructor_name || row.instructor_name,
       enrollmentCount: parseInt(row.enrollment_count),
       capacity: row.capacity,
       status: row.status,
       classType: row.class_type || "ballet",
       skillLevel: row.skill_level || "all_levels",
+      cohortId: row.cohort_id,
+      cohortName: row.cohort_name,
+      sessionType: row.session_type || 'regular',
     }));
   }
 
@@ -973,7 +1147,7 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
       classTemplateId: row.class_template_id,
       templateTitle: row.template_title,
       instructorId: row.instructor_id,
-      instructorName: row.instructor_name,
+      instructorName: row.override_instructor_name || row.instructor_name,
       sessionDate: row.session_date,
       startTime: row.start_time,
       endTime: row.end_time,
@@ -985,6 +1159,11 @@ WHERE ct.establishment_id = $1 AND ct.id = $2
       recurrenceDaysOfWeek: row.recurrence_days_of_week,
       recurrenceEndDate: row.recurrence_end_date,
       parentSessionId: row.parent_session_id,
+      cohortId: row.cohort_id,
+      cohortName: row.cohort_name,
+      overrideInstructorId: row.override_instructor_id,
+      overrideInstructorName: row.override_instructor_name,
+      sessionType: row.session_type || 'regular',
       enrollmentCount: parseInt(row.enrollment_count || 0),
       createdAt: row.created_at,
       updatedAt: row.updated_at,

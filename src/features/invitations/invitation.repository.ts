@@ -18,7 +18,7 @@ export class InvitationRepository {
   /**
    * Check if a table exists (with caching to avoid repeated queries)
    */
-  private async tableExists(tableName: string): Promise<boolean> {
+  async tableExists(tableName: string): Promise<boolean> {
     if (this.tableExistsCache.has(tableName)) {
       return this.tableExistsCache.get(tableName)!;
     }

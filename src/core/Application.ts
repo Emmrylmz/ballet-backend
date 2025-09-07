@@ -19,7 +19,9 @@ import { AuthMiddleware } from "../features/auth/middleware/AuthMiddleware.js";
 import { InvitationFactory } from "../features/invitations/invitation.factory.js";
 import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
 import { InvitationRepository } from "../features/invitations/invitation.repository.js";
-import createClassesRoutes from "../features/classes/classes.routes.js";
+import { ClassesFactory } from "../features/classes/classes.factory.js";
+import { CohortsFactory } from "../features/cohorts/cohorts.factory.js";
+import { DashboardFactory } from "../features/dashboard/dashboard.factory.js";
 
 export interface ApplicationConfig {
   port: number;
@@ -328,13 +330,18 @@ export class Application {
         isClasses: true,
       },
       {
+        path: "/api/v1/cohorts",
+        module: "cohorts",
+        isCohorts: true,
+      },
+      {
         path: "/api/v1/dashboard",
-        module: "../features/dashboard/dashboard.routes.js",
-        isAuth: false,
+        module: "dashboard",
+        isDashboard: true,
       },
     ];
 
-    for (const { path, module, isAuth, isInvitation, isClasses } of routes) {
+    for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard } of routes) {
       try {
         if (isAuth) {
           // Handle auth routes specially
@@ -357,6 +364,20 @@ export class Application {
           if (classesRoutes) {
             this.app.use(path, classesRoutes);
             this.logger.info(`Loaded classes routes: ${path}`);
+          }
+        } else if (isCohorts) {
+          // Handle cohorts routes specially
+          const cohortRoutes = await this.setupCohortsModule();
+          if (cohortRoutes) {
+            this.app.use(path, cohortRoutes);
+            this.logger.info(`Loaded cohorts routes: ${path}`);
+          }
+        } else if (isDashboard) {
+          // Handle dashboard routes specially
+          const dashboardRoutes = await this.setupDashboardModule();
+          if (dashboardRoutes) {
+            this.app.use(path, dashboardRoutes);
+            this.logger.info(`Loaded dashboard routes: ${path}`);
           }
         } else {
           // Handle other routes
@@ -455,8 +476,9 @@ export class Application {
         );
       }
 
-      // Create classes routes using the factory function
-      const classesRoutes = createClassesRoutes(
+      // Create classes module using factory
+      const classesFactory = ClassesFactory.getInstance();
+      const classesModule = classesFactory.createClassesModule(
         this.database,
         this.logger,
         tokenService,
@@ -466,9 +488,77 @@ export class Application {
       );
 
       this.logger.info("Classes module initialized successfully");
-      return classesRoutes;
+      return classesModule.classesRouter;
     } catch (error) {
       this.logger.error("Failed to setup classes module", { error });
+      throw error;
+    }
+  }
+
+  private async setupCohortsModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before cohorts module"
+        );
+      }
+
+      // Create cohorts module using factory
+      const cohortsFactory = CohortsFactory.getInstance();
+      const cohortsModule = cohortsFactory.createCohortsModule(
+        this.database,
+        this.logger,
+        tokenService,
+        authRepository,
+        passwordService,
+        cookieService
+      );
+
+      this.logger.info("Cohorts module initialized successfully");
+      return cohortsModule.cohortsRouter;
+    } catch (error) {
+      this.logger.error("Failed to setup cohorts module", { error });
+      throw error;
+    }
+  }
+
+  private async setupDashboardModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before dashboard module"
+        );
+      }
+
+      // Create dashboard module using factory
+      const dashboardFactory = DashboardFactory.getInstance();
+      const dashboardModule = dashboardFactory.createDashboardModule(
+        this.database,
+        this.logger,
+        tokenService,
+        authRepository,
+        cookieService
+      );
+
+      this.logger.info("Dashboard module initialized successfully");
+      return dashboardModule.dashboardRouter;
+    } catch (error) {
+      this.logger.error("Failed to setup dashboard module", { error });
       throw error;
     }
   }

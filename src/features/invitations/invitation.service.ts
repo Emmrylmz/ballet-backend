@@ -271,7 +271,7 @@ export class InvitationService {
         type: request.type,
         token,
         usageLimit,
-        sessionId: request.sessionId,
+        sessionId: request.sessionId ?? undefined,
         message: request.message,
         expiresAt,
       });

@@ -14,6 +14,7 @@ import { InvitationFactory } from "../features/invitations/invitation.factory.js
 import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
 import { InvitationRepository } from "../features/invitations/invitation.repository.js";
 import createClassesRoutes from "../features/classes/classes.routes.js";
+import { createCohortsRoutes } from "../features/cohorts/cohorts.routes.js";
 export class Application {
     app;
     server = null;
@@ -216,12 +217,17 @@ export class Application {
                 isClasses: true,
             },
             {
+                path: "/api/v1/cohorts",
+                module: "cohorts",
+                isCohorts: true,
+            },
+            {
                 path: "/api/v1/dashboard",
                 module: "../features/dashboard/dashboard.routes.js",
                 isAuth: false,
             },
         ];
-        for (const { path, module, isAuth, isInvitation, isClasses } of routes) {
+        for (const { path, module, isAuth, isInvitation, isClasses, isCohorts } of routes) {
             try {
                 if (isAuth) {
                     const authFactory = AuthFactory.getInstance();
@@ -243,6 +249,13 @@ export class Application {
                     if (classesRoutes) {
                         this.app.use(path, classesRoutes);
                         this.logger.info(`Loaded classes routes: ${path}`);
+                    }
+                }
+                else if (isCohorts) {
+                    const cohortRoutes = await this.setupCohortsModule();
+                    if (cohortRoutes) {
+                        this.app.use(path, cohortRoutes);
+                        this.logger.info(`Loaded cohorts routes: ${path}`);
                     }
                 }
                 else {
@@ -321,6 +334,27 @@ export class Application {
         }
         catch (error) {
             this.logger.error("Failed to setup classes module", { error });
+            throw error;
+        }
+    }
+    async setupCohortsModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const passwordService = authFactory.getPasswordService();
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !passwordService || !cookieService || !this.authMiddleware) {
+                throw new Error("Auth module must be initialized before cohorts module");
+            }
+            const { EstablishmentMiddleware } = await import("../../middleware/EstablishmentMiddleware.js");
+            const establishmentMiddleware = new EstablishmentMiddleware(this.logger, this.database);
+            const cohortsRoutes = createCohortsRoutes(this.database, this.logger, this.authMiddleware, establishmentMiddleware);
+            this.logger.info("Cohorts module initialized successfully");
+            return cohortsRoutes;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup cohorts module", { error });
             throw error;
         }
     }

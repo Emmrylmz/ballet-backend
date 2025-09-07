@@ -22,6 +22,7 @@ export declare class ClassesController {
     private classesService;
     private logger;
     constructor(classesService: ClassesService, logger: LoggerService);
+    private getEstablishmentId;
     private getClientIp;
     createTemplate: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getTemplate: (req: AuthenticatedRequest, res: Response) => Promise<void>;

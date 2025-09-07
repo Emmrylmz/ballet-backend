@@ -22,6 +22,7 @@ import {
   ClassResponse,
   PaginatedClassResponse,
   SessionStatus,
+  SessionType,
 } from "./classes.types.js";
 
 // Error constants (should be moved to errorMessages.js)
@@ -386,11 +387,160 @@ export class ClassesService {
   // CLASS SESSION METHODS
 
   /**
+   * Create multiple class sessions in bulk
+   */
+  async createBulkClassSessions(
+    establishmentId: string,
+    sessions: (CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: SessionType })[],
+    userId: string
+  ): Promise<ClassResponse<ClassSession[]>> {
+    try {
+      this.logger.info("Creating bulk class sessions", {
+        establishmentId,
+        sessionCount: sessions.length,
+        userId,
+      });
+
+      // Validate all sessions first
+      for (const session of sessions) {
+        const validation = await this.validateSessionData(
+          establishmentId,
+          session
+        );
+        if (!validation.isValid) {
+          return {
+            success: false,
+            message: `Session validation failed: ${validation.errors[0]}`,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: validation.errors[0] || "",
+            },
+          };
+        }
+      }
+
+      // Create sessions in bulk
+      const createdSessions = await this.classesRepository.createBulkClassSessions(
+        establishmentId,
+        sessions
+      );
+
+      // Log activity for bulk creation
+      await this.classesRepository.logActivity(
+        establishmentId,
+        "class",
+        `Bulk created ${createdSessions.length} sessions`,
+        `Created sessions for cohort or batch operation`,
+        undefined,
+        undefined,
+        userId,
+        "medium"
+      );
+
+      return {
+        success: true,
+        data: createdSessions,
+        message: `Successfully created ${createdSessions.length} sessions`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to create bulk class sessions", {
+        error,
+        establishmentId,
+      });
+      return {
+        success: false,
+        message: "Failed to create bulk sessions",
+        error: {
+          code: "CREATE_BULK_SESSIONS_ERROR",
+          message: "Internal server error",
+        },
+      };
+    }
+  }
+
+  /**
+   * Bulk enroll users in a session
+   */
+  async bulkEnrollUsersInSession(
+    establishmentId: string,
+    sessionId: string,
+    userIds: string[],
+    userId: string,
+    isWaitlist: boolean = false
+  ): Promise<ClassResponse<SessionEnrollment[]>> {
+    try {
+      this.logger.info("Bulk enrolling users in session", {
+        establishmentId,
+        sessionId,
+        userCount: userIds.length,
+        userId,
+      });
+
+      // Check if session exists
+      const session = await this.classesRepository.getClassSession(
+        establishmentId,
+        sessionId
+      );
+
+      if (!session) {
+        return {
+          success: false,
+          message: CLASS_ERRORS.SESSION_NOT_FOUND,
+          error: {
+            code: "SESSION_NOT_FOUND",
+            message: CLASS_ERRORS.SESSION_NOT_FOUND,
+          },
+        };
+      }
+
+      // Perform bulk enrollment
+      const enrollments = await this.classesRepository.bulkEnrollUsersInSession(
+        establishmentId,
+        sessionId,
+        userIds,
+        isWaitlist
+      );
+
+      // Log activity for bulk enrollment
+      await this.classesRepository.logActivity(
+        establishmentId,
+        "enrollment",
+        `Bulk enrolled ${enrollments.length} users`,
+        `Session: ${session.sessionDate} at ${session.startTime}`,
+        undefined,
+        sessionId,
+        userId,
+        "medium"
+      );
+
+      return {
+        success: true,
+        data: enrollments,
+        message: `Successfully enrolled ${enrollments.length} users`,
+      };
+    } catch (error) {
+      this.logger.error("Failed to bulk enroll users", {
+        error,
+        establishmentId,
+        sessionId,
+      });
+      return {
+        success: false,
+        message: "Failed to bulk enroll users",
+        error: {
+          code: "BULK_ENROLL_ERROR",
+          message: "Internal server error",
+        },
+      };
+    }
+  }
+
+  /**
    * Create a new class session
    */
   async createClassSession(
     establishmentId: string,
-    session: CreateClassSessionRequest,
+    session: CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: SessionType },
     userId: string
   ): Promise<ClassResponse<ClassSession>> {
     try {
@@ -650,11 +800,11 @@ export class ClassesService {
   }
 
   /**
-   * Get class sessions with filters
+   * Get class sessions with filters (including cohort support)
    */
   async getClassSessions(
     establishmentId: string,
-    filters: ClassSessionFilters = {}
+    filters: ClassSessionFilters & { cohortId?: string } = {}
   ): Promise<PaginatedClassResponse<ClassSession>> {
     try {
       const { sessions, total } = await this.classesRepository.getClassSessions(

@@ -5,6 +5,13 @@ export class ClassesController {
         this.classesService = classesService;
         this.logger = logger;
     }
+    getEstablishmentId(req) {
+        const establishmentId = req.establishment?.id;
+        if (!establishmentId) {
+            throw new Error("Establishment ID is required");
+        }
+        return establishmentId;
+    }
     getClientIp(req) {
         return (req.ip ||
             req.connection.remoteAddress ||
@@ -16,15 +23,7 @@ export class ClassesController {
     }
     createTemplate = async (req, res) => {
         try {
-            const establishmentId = req.establishment?.id;
-            if (!establishmentId) {
-                res.status(400).json({
-                    success: false,
-                    message: "Establishment context required",
-                    code: "ESTABLISHMENT_ACCESS_ERROR",
-                });
-                return;
-            }
+            const establishmentId = this.getEstablishmentId(req);
             const templateRequest = req.body;
             const userId = req.user?.id || "";
             this.logger.info("Creating class template via API", {

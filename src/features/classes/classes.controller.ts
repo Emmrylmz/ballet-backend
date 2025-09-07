@@ -10,6 +10,7 @@ import {
   ClassSessionFilters,
   GenerateSessionsRequest,
   EnrollStudentRequest,
+  SessionType,
 } from "./classes.types.js";
 
 interface Establishment {
@@ -123,7 +124,7 @@ export class ClassesController {
 
       const result = await this.classesService.getClassTemplate(
         establishmentId,
-        id
+        id!
       );
 
       if (result.success) {
@@ -222,7 +223,7 @@ export class ClassesController {
 
       const result = await this.classesService.updateClassTemplate(
         establishmentId,
-        id,
+        id!,
         updates,
         userId
       );
@@ -276,7 +277,7 @@ export class ClassesController {
 
       const result = await this.classesService.deleteClassTemplate(
         establishmentId,
-        id,
+        id!,
         userId
       );
 
@@ -331,7 +332,7 @@ export class ClassesController {
 
       const result = await this.classesService.generateSessionsFromTemplate(
         establishmentId,
-        id,
+        id!,
         request,
         userId
       );
@@ -360,6 +361,134 @@ export class ClassesController {
   // CLASS SESSION CONTROLLERS
 
   /**
+   * Create multiple class sessions in bulk
+   * POST /classes/sessions/bulk
+   */
+  createBulkSessions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const establishmentId = req.establishment?.id;
+      if (!establishmentId) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid establishment access",
+          code: "ESTABLISHMENT_ACCESS_ERROR",
+        });
+        return;
+      }
+
+      const sessions: (CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: SessionType })[] = req.body.sessions;
+      const userId = req.user?.id || "";
+
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "Sessions array is required and cannot be empty",
+          code: "INVALID_SESSIONS_ARRAY",
+        });
+        return;
+      }
+
+      this.logger.info("Creating bulk class sessions via API", {
+        establishmentId,
+        sessionCount: sessions.length,
+        userId,
+        ip: this.getClientIp(req),
+      });
+
+      const result = await this.classesService.createBulkClassSessions(
+        establishmentId,
+        sessions,
+        userId
+      );
+
+      if (result.success) {
+        res.status(201).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      this.logger.error("Error in createBulkSessions controller", {
+        error,
+        body: req.body,
+        userId: req.user?.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
+    }
+  };
+
+  /**
+   * Bulk enroll users in a session
+   * POST /classes/sessions/:id/bulk-enroll
+   */
+  bulkEnrollUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const establishmentId = req.establishment?.id;
+      if (!establishmentId) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid establishment access",
+          code: "ESTABLISHMENT_ACCESS_ERROR",
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { userIds, isWaitlist = false } = req.body;
+      const userId = req.user?.id || "";
+
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "userIds array is required and cannot be empty",
+          code: "INVALID_USER_IDS_ARRAY",
+        });
+        return;
+      }
+
+      this.logger.info("Bulk enrolling users in session via API", {
+        establishmentId,
+        sessionId: id,
+        userCount: userIds.length,
+        isWaitlist,
+        userId,
+        ip: this.getClientIp(req),
+      });
+
+      const result = await this.classesService.bulkEnrollUsersInSession(
+        establishmentId,
+        id!,
+        userIds,
+        userId,
+        isWaitlist
+      );
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      this.logger.error("Error in bulkEnrollUsers controller", {
+        error,
+        sessionId: req.params.id,
+        body: req.body,
+        userId: req.user?.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
+    }
+  };
+
+  /**
    * Create class session
    * POST /classes/sessions
    */
@@ -375,13 +504,14 @@ export class ClassesController {
         return;
       }
 
-      const sessionRequest: CreateClassSessionRequest = req.body;
+      const sessionRequest: CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: SessionType } = req.body;
       const userId = req.user?.id || "";
 
       this.logger.info("Creating class session via API", {
         establishmentId,
         sessionDate: sessionRequest.sessionDate,
         classTemplateId: sessionRequest.classTemplateId,
+        cohortId: sessionRequest.cohortId,
         userId,
         ip: this.getClientIp(req),
       });
@@ -432,7 +562,7 @@ export class ClassesController {
 
       const result = await this.classesService.getClassSession(
         establishmentId,
-        id
+        id!
       );
 
       if (result.success) {
@@ -471,12 +601,13 @@ export class ClassesController {
         return;
       }
 
-      const filters: ClassSessionFilters = {
+      const filters: ClassSessionFilters & { cohortId?: string } = {
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,
         instructorId: req.query.instructorId as string,
         status: req.query.status as any,
         classTemplateId: req.query.classTemplateId as string,
+        cohortId: req.query.cohortId as string,
         limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
       };
@@ -570,7 +701,7 @@ export class ClassesController {
 
       const result = await this.classesService.updateClassSession(
         establishmentId,
-        id,
+        id!,
         updates,
         userId
       );
@@ -624,7 +755,7 @@ export class ClassesController {
 
       const result = await this.classesService.cancelClassSession(
         establishmentId,
-        id,
+        id!,
         userId
       );
 
@@ -680,7 +811,7 @@ export class ClassesController {
 
       const result = await this.classesService.enrollStudents(
         establishmentId,
-        id,
+        id!,
         request,
         userId
       );
@@ -735,8 +866,8 @@ export class ClassesController {
 
       const result = await this.classesService.removeStudentFromSession(
         establishmentId,
-        id,
-        studentId,
+        id!,
+        studentId!,
         userId
       );
 
@@ -781,7 +912,7 @@ export class ClassesController {
 
       const result = await this.classesService.getSessionEnrollments(
         establishmentId,
-        id
+        id!
       );
 
       if (result.success) {
@@ -825,7 +956,7 @@ export class ClassesController {
 
       const result = await this.classesService.getStudentEnrolledSessions(
         establishmentId,
-        studentId,
+        studentId!,
         includeCompleted
       );
 

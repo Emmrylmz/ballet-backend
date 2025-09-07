@@ -20,43 +20,53 @@ export class ClassesRepository {
         return exists;
     }
     async createClassTemplate(establishmentId, template) {
-        const result = await this.db.query(`
-      INSERT INTO class_templates (
-        establishment_id, title, class_type, skill_level, instructor_id,
-        capacity, duration_minutes, price, description
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, establishment_id, title, class_type, skill_level, 
-                instructor_id, capacity, duration_minutes, price, 
-                description, is_active, created_at, updated_at
-    `, [
-            establishmentId,
-            template.title,
-            template.classType,
-            template.skillLevel,
-            template.instructorId || null,
-            template.capacity,
-            template.durationMinutes,
-            template.price,
-            template.description || null,
-        ]);
-        const row = result.rows[0];
-        return this.mapClassTemplateRow(row);
+        try {
+            const result = await this.db.query(`
+        INSERT INTO class_templates (
+          establishment_id, title, class_type, skill_level, instructor_id,
+          capacity, duration_minutes, price, description
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, establishment_id, title, class_type, skill_level, 
+                  instructor_id, capacity, duration_minutes, price, 
+                  description, is_active, created_at, updated_at
+      `, [
+                establishmentId,
+                template.title,
+                template.classType,
+                template.skillLevel,
+                template.instructorId || null,
+                template.capacity,
+                template.durationMinutes,
+                template.price,
+                template.description || null,
+            ]);
+            const row = result.rows[0];
+            return this.mapClassTemplateRow(row);
+        }
+        catch (error) {
+            console.log(error, "debug");
+            throw error;
+        }
     }
     async getClassTemplate(establishmentId, templateId) {
-        const result = await this.db.query(`
-      SELECT ct.id, ct.establishment_id, ct.title, ct.class_type, ct.skill_level,
-             ct.instructor_id, ct.capacity, ct.duration_minutes, ct.price,
-             ct.description, ct.is_active, ct.created_at, ct.updated_at,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name
-      FROM class_templates ct
-      LEFT JOIN user_establishments ue ON ct.instructor_id = ue.user_id AND ue.establishment_id = ct.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
-      WHERE ct.establishment_id = $1 AND ct.id = $2
-    `, [establishmentId, templateId]);
-        if (result.rows.length === 0) {
-            return null;
+        try {
+            const result = await this.db.query(`
+       SELECT ct.id, ct.establishment_id, ct.title, ct.class_type, ct.skill_level,
+       ct.instructor_id, ct.capacity, ct.duration_minutes, ct.price,
+       ct.description, ct.is_active, ct.created_at, ct.updated_at,
+       CONCAT(u.first_name, ' ', u.last_name) as instructor_name
+FROM class_templates ct
+LEFT JOIN users u ON ct.instructor_id = u.id
+WHERE ct.establishment_id = $1 AND ct.id = $2
+      `, [establishmentId, templateId]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            return this.mapClassTemplateRow(result.rows[0]);
         }
-        return this.mapClassTemplateRow(result.rows[0]);
+        catch (error) {
+            console.log(error);
+        }
     }
     async getClassTemplates(establishmentId, filters = {}) {
         let whereConditions = ["ct.establishment_id = $1"];
@@ -88,17 +98,16 @@ export class ClassesRepository {
         const limit = filters.limit || 50;
         const offset = filters.offset || 0;
         const result = await this.db.query(`
-      SELECT ct.id, ct.establishment_id, ct.title, ct.class_type, ct.skill_level,
-             ct.instructor_id, ct.capacity, ct.duration_minutes, ct.price,
-             ct.description, ct.is_active, ct.created_at, ct.updated_at,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name
-      FROM class_templates ct
-      LEFT JOIN user_establishments ue ON ct.instructor_id = ue.user_id AND ue.establishment_id = ct.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
-      WHERE ${whereClause}
-      ORDER BY ct.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `, [...queryParams, limit, offset]);
+  SELECT ct.id, ct.establishment_id, ct.title, ct.class_type, ct.skill_level,
+         ct.instructor_id, ct.capacity, ct.duration_minutes, ct.price,
+         ct.description, ct.is_active, ct.created_at, ct.updated_at,
+         CONCAT(u.first_name, ' ', u.last_name) as instructor_name
+  FROM class_templates ct
+  LEFT JOIN users u ON ct.instructor_id = u.id
+  WHERE ${whereClause}
+  ORDER BY ct.created_at DESC
+  LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `, [...queryParams, limit, offset]);
         const templates = result.rows.map((row) => this.mapClassTemplateRow(row));
         return { templates, total };
     }
@@ -216,8 +225,7 @@ export class ClassesRepository {
              COALESCE(enrollment_count.count, 0) as enrollment_count
       FROM class_sessions cs
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN user_establishments ue ON cs.instructor_id = ue.user_id AND ue.establishment_id = cs.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
+      LEFT JOIN users u ON cs.instructor_id = u.id
       LEFT JOIN (
         SELECT session_id, COUNT(*) as count
         FROM session_enrollments
@@ -266,28 +274,27 @@ export class ClassesRepository {
         const limit = filters.limit || 50;
         const offset = filters.offset || 0;
         const result = await this.db.query(`
-      SELECT cs.id, cs.establishment_id, cs.class_template_id, cs.instructor_id,
-             cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
-             cs.notes, cs.is_recurring, cs.recurrence_frequency, 
-             cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
-             cs.created_at, cs.updated_at,
-             ct.title as template_title,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
-             COALESCE(enrollment_count.count, 0) as enrollment_count
-      FROM class_sessions cs
-      LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN user_establishments ue ON cs.instructor_id = ue.user_id AND ue.establishment_id = cs.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
-      LEFT JOIN (
-        SELECT session_id, COUNT(*) as count
-        FROM session_enrollments
-        WHERE is_waitlist = false
-        GROUP BY session_id
-      ) enrollment_count ON cs.id = enrollment_count.session_id
-      WHERE ${whereClause}
-      ORDER BY cs.session_date ASC, cs.start_time ASC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `, [...queryParams, limit, offset]);
+  SELECT cs.id, cs.establishment_id, cs.class_template_id, cs.instructor_id,
+         cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
+         cs.notes, cs.is_recurring, cs.recurrence_frequency, 
+         cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
+         cs.created_at, cs.updated_at,
+         ct.title as template_title,
+         CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+         COALESCE(enrollment_count.count, 0) as enrollment_count
+  FROM class_sessions cs
+  LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+  LEFT JOIN users u ON cs.instructor_id = u.id
+  LEFT JOIN (
+    SELECT session_id, COUNT(*) as count
+    FROM session_enrollments
+    WHERE is_waitlist = false
+    GROUP BY session_id
+  ) enrollment_count ON cs.id = enrollment_count.session_id
+  WHERE ${whereClause}
+  ORDER BY cs.session_date ASC, cs.start_time ASC
+  LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `, [...queryParams, limit, offset]);
         const sessions = await Promise.all(result.rows.map((row) => this.mapClassSessionRow(row)));
         return { sessions, total };
     }
@@ -301,12 +308,11 @@ export class ClassesRepository {
              cs.recurrence_days_of_week, cs.recurrence_end_date, cs.parent_session_id,
              cs.created_at, cs.updated_at,
              ct.title as template_title,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+             i.name as instructor_name,
              COALESCE(enrollment_count.count, 0) as enrollment_count
       FROM class_sessions cs
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN user_establishments ue ON cs.instructor_id = ue.user_id AND ue.establishment_id = cs.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
+      LEFT JOIN instructors i ON cs.instructor_id = i.id
       LEFT JOIN (
         SELECT session_id, COUNT(*) as count
         FROM session_enrollments
@@ -434,12 +440,11 @@ export class ClassesRepository {
       SELECT se.session_id, se.enrollment_date, se.is_waitlist,
              cs.session_date, cs.start_time, cs.end_time, cs.status,
              ct.title as template_title,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name
+             i.name as instructor_name
       FROM session_enrollments se
       JOIN class_sessions cs ON se.session_id = cs.id
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN user_establishments ue ON cs.instructor_id = ue.user_id AND ue.establishment_id = cs.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
+      LEFT JOIN instructors i ON cs.instructor_id = i.id
       WHERE se.establishment_id = $1 AND se.student_id = $2 ${statusCondition}
       ORDER BY cs.session_date ASC, cs.start_time ASC
     `, [establishmentId, studentId]);
@@ -530,12 +535,11 @@ export class ClassesRepository {
         const result = await this.db.query(`
       SELECT cs.id, cs.session_date, cs.start_time, cs.end_time, cs.capacity, cs.status,
              ct.title, ct.class_type, ct.skill_level,
-             CONCAT(u.first_name, ' ', u.last_name) as instructor_name,
+             i.name as instructor_name,
              COALESCE(enrollment_count.count, 0) as enrollment_count
       FROM class_sessions cs
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-      LEFT JOIN user_establishments ue ON cs.instructor_id = ue.user_id AND ue.establishment_id = cs.establishment_id
-      LEFT JOIN users u ON ue.user_id = u.id
+      LEFT JOIN instructors i ON cs.instructor_id = i.id
       LEFT JOIN (
         SELECT session_id, COUNT(*) as count
         FROM session_enrollments

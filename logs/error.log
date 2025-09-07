@@ -1510,3 +1510,52 @@
 {"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:26:37.023Z"}
 {"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:28:02.503Z"}
 {"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"366","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get calendar events","timestamp":"2025-09-07T17:42:07.321Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T19:51:52.082Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T19:53:19.550Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:01:16.050Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:01:53.755Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:02:26.042Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":106,"line":"1373","name":"error","position":"38","routine":"parserOpenTable","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:02:27.581Z"}
+{"error":{"code":"42883","file":"parse_oper.c","hint":"No operator matches the given name and argument types. You might need to add explicit type casts.","length":198,"line":"722","name":"error","position":"174","routine":"op_error","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:04:46.864Z"}
+{"error":{"code":"42883","file":"parse_oper.c","hint":"No operator matches the given name and argument types. You might need to add explicit type casts.","length":198,"line":"722","name":"error","position":"174","routine":"op_error","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:05:06.653Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:07:21.936Z"}
+{"error":{"code":"42883","file":"parse_oper.c","hint":"No operator matches the given name and argument types. You might need to add explicit type casts.","length":198,"line":"722","name":"error","position":"133","routine":"op_error","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:07:28.555Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:09:44.111Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:11:38.784Z"}
+{"error":{"code":"22008","file":"datetime.c","length":109,"line":"3728","name":"error","routine":"DateTimeParseError","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:13:10.200Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:13:56.418Z"}
+{"error":{"code":"22008","file":"datetime.c","length":109,"line":"3728","name":"error","routine":"DateTimeParseError","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:14:03.571Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:15:09.390Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:23:35.628Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:23:45.822Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:23:58.346Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:24:07.595Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:24:16.666Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:29:08.780Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:30:27.151Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:31:04.153Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:31:38.319Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:31:57.727Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:32:21.936Z"}
+{"error":{"code":"08P01","file":"postgres.c","length":137,"line":"1671","name":"error","routine":"exec_bind_message","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:36:49.805Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:37:15.396Z"}
+{"error":{"code":"08P01","file":"postgres.c","length":137,"line":"1671","name":"error","routine":"exec_bind_message","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:37:17.934Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:39:21.771Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:40:07.037Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:42:00.430Z"}
+{"error":{},"ip":"unknown","level":"error","message":"Error in getCohortStats controller","timestamp":"2025-09-07T20:49:30.514Z","userId":"45701370-3705-4a90-8b76-d5d71a2a18dd"}
+{"error":{},"ip":"unknown","level":"error","message":"Error in getCohortStats controller","timestamp":"2025-09-07T20:49:47.594Z","userId":"45701370-3705-4a90-8b76-d5d71a2a18dd"}
+{"error":{"code":"08P01","file":"postgres.c","length":137,"line":"1671","name":"error","routine":"exec_bind_message","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T20:52:49.945Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T20:59:05.041Z"}
+{"error":{"code":"42703","file":"parse_target.c","length":146,"line":"1047","name":"error","position":"187","routine":"checkInsertTargets","severity":"ERROR"},"establishmentId":"6f30954f-1626-452f-a7a2-4b303fd6b4c9","level":"error","message":"Failed to create cohort","timestamp":"2025-09-07T20:59:11.370Z","userId":"45701370-3705-4a90-8b76-d5d71a2a18dd"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:01:06.677Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:01:09.333Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:03:18.036Z"}
+{"error":{},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T21:03:21.090Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:03:36.410Z"}
+{"error":{"code":"42P18","file":"postgres.c","length":111,"line":"1470","name":"error","routine":"exec_parse_message","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T21:03:38.265Z"}
+{"error":{"code":"42P18","file":"postgres.c","length":111,"line":"1470","name":"error","routine":"exec_parse_message","severity":"ERROR"},"instructorId":"45701370-3705-4a90-8b76-d5d71a2a18dd","level":"error","message":"Error checking instructor availability","timestamp":"2025-09-07T21:05:20.754Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:08:40.790Z"}
+{"error":{"code":"42703","file":"parse_target.c","length":146,"line":"1047","name":"error","position":"187","routine":"checkInsertTargets","severity":"ERROR"},"establishmentId":"6f30954f-1626-452f-a7a2-4b303fd6b4c9","level":"error","message":"Failed to create cohort","timestamp":"2025-09-07T21:09:05.710Z","userId":"45701370-3705-4a90-8b76-d5d71a2a18dd"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T21:10:37.576Z"}
+{"error":{"code":"23503","constraint":"cohorts_template_id_fkey","detail":"Key (template_id)=(3fa85f64-5717-4562-b3fc-2c963f66afa6) is not present in table \"class_templates\".","file":"ri_triggers.c","length":307,"line":"2465","name":"error","routine":"ri_ReportViolation","schema":"public","severity":"ERROR","table":"cohorts"},"establishmentId":"6f30954f-1626-452f-a7a2-4b303fd6b4c9","level":"error","message":"Failed to create cohort","timestamp":"2025-09-07T21:10:39.152Z","userId":"45701370-3705-4a90-8b76-d5d71a2a18dd"}

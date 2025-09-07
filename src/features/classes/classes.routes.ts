@@ -637,6 +637,12 @@ const createClassesRoutes = (
    *           type: string
    *           format: uuid
    *       - in: query
+   *         name: cohortId
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Filter sessions by cohort ID
+   *       - in: query
    *         name: limit
    *         schema:
    *           type: integer

@@ -43,7 +43,7 @@ export class ClassesService {
                 };
             }
             const createdTemplate = await this.classesRepository.createClassTemplate(establishmentId, template);
-            await this.classesRepository.logActivity(establishmentId, "template_created", `Template created: ${template.title}`, `Class type: ${template.classType}, Skill level: ${template.skillLevel}`, undefined, undefined, userId, "medium");
+            await this.classesRepository.logActivity(establishmentId, "class", `Template created: ${template.title}`, `Class type: ${template.classType}, Skill level: ${template.skillLevel}`, undefined, undefined, userId, "medium");
             return {
                 success: true,
                 data: createdTemplate,
@@ -51,6 +51,7 @@ export class ClassesService {
             };
         }
         catch (error) {
+            console.log(error, "debug");
             this.logger.error("Failed to create class template", {
                 error,
                 establishmentId,
@@ -167,7 +168,7 @@ export class ClassesService {
                     },
                 };
             }
-            await this.classesRepository.logActivity(establishmentId, "template_updated", `Template updated: ${updatedTemplate.title}`, `Updates: ${Object.keys(updates).join(", ")}`, undefined, undefined, userId, "medium");
+            await this.classesRepository.logActivity(establishmentId, "class", `Template updated: ${updatedTemplate.title}`, `Updates: ${Object.keys(updates).join(", ")}`, undefined, undefined, userId, "medium");
             return {
                 success: true,
                 data: updatedTemplate,
@@ -219,7 +220,7 @@ export class ClassesService {
                     },
                 };
             }
-            await this.classesRepository.logActivity(establishmentId, "template_deleted", `Template deleted: ${template.title}`, "Template has been deactivated", undefined, undefined, userId, "high");
+            await this.classesRepository.logActivity(establishmentId, "class", `Template deleted: ${template.title}`, "Template has been deactivated", undefined, undefined, userId, "high");
             return {
                 success: true,
                 message: "Class template deleted successfully",
@@ -295,7 +296,7 @@ export class ClassesService {
                 }
             }
             const createdSession = await this.classesRepository.createClassSession(establishmentId, session);
-            await this.classesRepository.logActivity(establishmentId, "session_created", `Session created for ${session.sessionDate}`, `Start time: ${session.startTime}`, undefined, createdSession.id, userId, "medium");
+            await this.classesRepository.logActivity(establishmentId, "class", `Session created for ${session.sessionDate}`, `Start time: ${session.startTime}`, undefined, createdSession.id, userId, "medium");
             return {
                 success: true,
                 data: createdSession,
@@ -489,7 +490,7 @@ export class ClassesService {
                     },
                 };
             }
-            await this.classesRepository.logActivity(establishmentId, "session_updated", `Session updated for ${updatedSession.sessionDate}`, `Updates: ${Object.keys(updates).join(", ")}`, undefined, sessionId, userId, "medium");
+            await this.classesRepository.logActivity(establishmentId, "class", `Session updated for ${updatedSession.sessionDate}`, `Updates: ${Object.keys(updates).join(", ")}`, undefined, sessionId, userId, "medium");
             return {
                 success: true,
                 data: updatedSession,
@@ -554,7 +555,7 @@ export class ClassesService {
                     },
                 };
             }
-            await this.classesRepository.logActivity(establishmentId, "session_cancelled", `Session cancelled for ${session.sessionDate}`, "Session has been cancelled", undefined, sessionId, userId, "high");
+            await this.classesRepository.logActivity(establishmentId, "class", `Session cancelled for ${session.sessionDate}`, "Session has been cancelled", undefined, sessionId, userId, "high");
             return {
                 success: true,
                 message: "Class session cancelled successfully",
@@ -630,7 +631,7 @@ export class ClassesService {
                             packageDeducted =
                                 await this.classesRepository.deductPackageCredit(establishmentId, studentPackage.id);
                             if (packageDeducted) {
-                                await this.classesRepository.logActivity(establishmentId, "package_deducted", `Package credit deducted`, `Session: ${session.sessionDate}`, studentId, sessionId, userId, "low");
+                                await this.classesRepository.logActivity(establishmentId, "class", `Package credit deducted`, `Session: ${session.sessionDate}`, studentId, sessionId, userId, "low");
                             }
                         }
                     }
@@ -644,7 +645,7 @@ export class ClassesService {
                     if (!isWaitlist) {
                         successCount++;
                     }
-                    await this.classesRepository.logActivity(establishmentId, "student_enrolled", `Student enrolled in session`, `${isWaitlist ? "Added to waitlist" : "Enrolled"} for ${session.sessionDate}`, studentId, sessionId, userId, "medium");
+                    await this.classesRepository.logActivity(establishmentId, "class", `Student enrolled in session`, `${isWaitlist ? "Added to waitlist" : "Enrolled"} for ${session.sessionDate}`, studentId, sessionId, userId, "medium");
                 }
                 catch (error) {
                     this.logger.error("Failed to enroll individual student", {
@@ -699,7 +700,7 @@ export class ClassesService {
                     },
                 };
             }
-            await this.classesRepository.logActivity(establishmentId, "student_removed", `Student removed from session`, `Removed from session on ${new Date().toISOString().split("T")[0]}`, studentId, sessionId, userId, "medium");
+            await this.classesRepository.logActivity(establishmentId, "class", `Student removed from session`, `Removed from session on ${new Date().toISOString().split("T")[0]}`, studentId, sessionId, userId, "medium");
             return {
                 success: true,
                 message: "Student removed from session successfully",

@@ -1,10 +1,10 @@
-export type ClassType = 'ballet' | 'pilates' | 'barre' | 'yoga' | 'contemporary' | 'jazz' | 'modern';
-export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
-export type SessionStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'daily';
-export type ActivityType = 'template_created' | 'template_updated' | 'template_deleted' | 'session_created' | 'session_updated' | 'session_cancelled' | 'student_enrolled' | 'student_removed' | 'package_deducted';
-export type PackageType = 'monthly_unlimited' | 'class_pack_5' | 'class_pack_10' | 'class_pack_20' | 'drop_in' | 'trial';
-export type PaymentStatus = 'current' | 'overdue' | 'cancelled';
+export type ClassType = "ballet" | "pilates" | "barre" | "yoga" | "contemporary" | "jazz" | "modern";
+export type SkillLevel = "beginner" | "intermediate" | "advanced" | "all_levels";
+export type SessionStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
+export type RecurrenceFrequency = "weekly" | "biweekly" | "monthly" | "daily";
+export type ActivityType = "payment" | "registration" | "attendance" | "class" | "enrollment" | "invitation";
+export type PackageType = "monthly_unlimited" | "class_pack_5" | "class_pack_10" | "class_pack_20" | "drop_in" | "trial";
+export type PaymentStatus = "current" | "overdue" | "cancelled";
 export interface ClassTemplate {
     id: string;
     establishmentId: string;
@@ -224,7 +224,7 @@ export interface ClassActivity {
     studentId?: string;
     sessionId?: string;
     userId?: string;
-    priority: 'low' | 'medium' | 'high';
+    priority: "low" | "medium" | "high";
     createdAt: Date;
 }
 export interface SessionValidation {
