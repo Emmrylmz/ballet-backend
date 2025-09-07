@@ -14,11 +14,11 @@ export class InvitationFactory {
         }
         return InvitationFactory.instance;
     }
-    createInvitationModule(db, logger, tokenService, authRepository, passwordService) {
+    createInvitationModule(db, logger, tokenService, authRepository, passwordService, cookieService) {
         const invitationRepository = new InvitationRepository(db);
         this.invitationService = new InvitationService(invitationRepository, authRepository, passwordService, logger);
         this.invitationController = new InvitationController(this.invitationService, logger);
-        this.invitationRoutes = createInvitationRoutes(db, logger, tokenService, authRepository, passwordService);
+        this.invitationRoutes = createInvitationRoutes(db, logger, tokenService, authRepository, passwordService, cookieService);
         return {
             invitationService: this.invitationService,
             invitationController: this.invitationController,
@@ -35,6 +35,6 @@ export class InvitationFactory {
         return this.invitationRoutes;
     }
 }
-export const createInvitationModule = (db, logger, tokenService, authRepository, passwordService) => {
-    return createInvitationRoutes(db, logger, tokenService, authRepository, passwordService);
+export const createInvitationModule = (db, logger, tokenService, authRepository, passwordService, cookieService) => {
+    return createInvitationRoutes(db, logger, tokenService, authRepository, passwordService, cookieService);
 };

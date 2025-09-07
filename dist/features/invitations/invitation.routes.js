@@ -66,12 +66,12 @@ const acceptInvitationRateLimit = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-const createInvitationRoutes = (db, logger, tokenService, authRepository) => {
+const createInvitationRoutes = (db, logger, tokenService, authRepository, passwordService, cookieService) => {
     const router = Router();
     const invitationRepository = new InvitationRepository(db);
-    const invitationService = new InvitationService(invitationRepository, authRepository, logger);
+    const invitationService = new InvitationService(invitationRepository, authRepository, passwordService, logger);
     const controller = new InvitationController(invitationService, logger);
-    const authMiddleware = new AuthMiddleware(tokenService, authRepository, logger);
+    const authMiddleware = new AuthMiddleware(tokenService, cookieService, authRepository, logger);
     const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
     router.get("/validate/:token", publicRateLimit, authMiddleware.optional(), controller.validateInvitation.bind(controller));
     router.post("/accept/:token", authMiddleware.authenticate(), acceptInvitationRateLimit, controller.acceptInvitation.bind(controller));

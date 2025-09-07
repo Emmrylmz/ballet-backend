@@ -1387,3 +1387,126 @@
 {"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:11:19.298Z"}
 {"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:12:28.405Z"}
 {"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:12:31.584Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:54:42.154Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:55:05.847Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T14:59:46.122Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:03:59.097Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:04:06.468Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:04:13.181Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:04:27.576Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:04:57.230Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:07:22.758Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:07:40.205Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:09:25.706Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:09:43.696Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:10:12.485Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:10:41.737Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:11:04.577Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:11:18.793Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:11:21.127Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:12:14.829Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:12:28.544Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:12:54.323Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:13:28.817Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:13:43.157Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:14:07.975Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:04.804Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:11.208Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:18.327Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:24.724Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:31.503Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:37.846Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:45.450Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:52.540Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:15:58.944Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:16:05.595Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:16:08.021Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:16:47.898Z"}
+{"error":{"code":"23503","constraint":"class_templates_instructor_id_fkey","detail":"Key (instructor_id)=(45701370-3705-4a90-8b76-d5d71a2a18dd) is not present in table \"instructors\".","file":"ri_triggers.c","length":341,"line":"2465","name":"error","routine":"ri_ReportViolation","schema":"public","severity":"ERROR","table":"class_templates"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:18:24.312Z"}
+{"error":{"code":"23503","constraint":"class_templates_instructor_id_fkey","detail":"Key (instructor_id)=(45701370-3705-4a90-8b76-d5d71a2a18dd) is not present in table \"instructors\".","file":"ri_triggers.c","length":341,"line":"2465","name":"error","routine":"ri_ReportViolation","schema":"public","severity":"ERROR","table":"class_templates"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:18:52.424Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:27:42.431Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:27:51.428Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:28:54.891Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:29:10.484Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:29:29.654Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:29:46.339Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:30:03.017Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:31:09.864Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:31:25.943Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:31:57.094Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:32:48.205Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:33:48.076Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:33:55.478Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:34:20.871Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:35:27.106Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:35:54.589Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:36:43.556Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:38:20.420Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:41:35.594Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:42:13.796Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:42:16.094Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:43:49.716Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:44:09.406Z"}
+{"error":{"code":"42703","file":"parse_target.c","length":138,"line":"1047","name":"error","position":"71","routine":"checkInsertTargets","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:44:11.695Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:44:40.694Z"}
+{"error":{"code":"42703","file":"parse_target.c","length":138,"line":"1047","name":"error","position":"71","routine":"checkInsertTargets","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:44:44.635Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:44:52.293Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:45:48.589Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:46:03.837Z"}
+{"error":{"code":"22P02","file":"enum.c","length":101,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:46:05.487Z"}
+{"error":{"code":"22P02","file":"enum.c","length":101,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:46:21.215Z"}
+{"error":{"code":"22P02","file":"enum.c","length":101,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:46:50.507Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:47:39.067Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:47:41.170Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:48:35.143Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:48:37.075Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:51:15.843Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:51:37.014Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:51:52.867Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:51:54.197Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:51:59.209Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:52:56.523Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:52:57.706Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:55:24.732Z"}
+{"error":{"code":"22P02","file":"enum.c","length":112,"line":"129","name":"error","routine":"enum_in","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to create class template","timestamp":"2025-09-07T15:55:28.307Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T15:59:23.251Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T15:59:34.908Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T15:59:54.282Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:00:09.282Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:00:13.210Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:01:26.979Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:01:29.074Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:01:49.687Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:02:00.160Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:02:01.021Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:07:01.576Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:07:25.042Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:09:27.023Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:09:29.919Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:09:36.207Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:09:38.142Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:10:14.657Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"317","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class templates","timestamp":"2025-09-07T16:11:00.613Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:12:13.060Z"}
+{"error":{"code":"23503","constraint":"class_templates_instructor_id_fkey","detail":"Key (instructor_id)=(3fa85f64-5717-4562-b3fc-2c963f66afa6) is not present in table \"users\".","file":"ri_triggers.c","length":335,"line":"2465","name":"error","routine":"ri_ReportViolation","schema":"public","severity":"ERROR","table":"class_templates"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to update class template","templateId":"68194e66-05cb-40a0-86c1-639e5429c7db","timestamp":"2025-09-07T16:14:01.643Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:16:15.124Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:17:02.431Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:17:02.549Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:17:30.427Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:17:32.835Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:18:22.846Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:19:08.180Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":221,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:19:09.692Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":221,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:20:25.372Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":221,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:21:11.372Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":221,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:21:48.101Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:22:27.757Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":275,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:23:05.825Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":275,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:24:21.605Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:26:00.552Z"}
+{"error":{"code":"22P02","file":"uuid.c","length":275,"line":"134","name":"error","routine":"string_to_uuid","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:26:02.771Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:26:10.409Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:26:31.547Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"623","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get class sessions","timestamp":"2025-09-07T16:26:37.023Z"}
+{"error":{},"level":"error","message":"Error during invitation cleanup","timestamp":"2025-09-07T16:28:02.503Z"}
+{"error":{"code":"42P01","file":"parse_relation.c","length":111,"line":"1373","name":"error","position":"366","routine":"parserOpenTable","severity":"ERROR"},"establishmentId":"0a9edc36-9a58-4f0b-a007-3f1ae8ad050d","level":"error","message":"Failed to get calendar events","timestamp":"2025-09-07T17:42:07.321Z"}

@@ -50,6 +50,7 @@ export declare class Application {
     private loadExistingRoutes;
     private setupAuthModule;
     private setupInvitationModule;
+    private setupClassesModule;
     private loadRoute;
     private setupErrorHandling;
     private startServer;

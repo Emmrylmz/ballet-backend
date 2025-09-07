@@ -19,6 +19,7 @@ import { AuthMiddleware } from "../features/auth/middleware/AuthMiddleware.js";
 import { InvitationFactory } from "../features/invitations/invitation.factory.js";
 import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
 import { InvitationRepository } from "../features/invitations/invitation.repository.js";
+import createClassesRoutes from "../features/classes/classes.routes.js";
 
 export interface ApplicationConfig {
   port: number;
@@ -322,13 +323,18 @@ export class Application {
         isInvitation: true,
       },
       {
+        path: "/api/v1/classes",
+        module: "classes",
+        isClasses: true,
+      },
+      {
         path: "/api/v1/dashboard",
         module: "../features/dashboard/dashboard.routes.js",
         isAuth: false,
       },
     ];
 
-    for (const { path, module, isAuth, isInvitation } of routes) {
+    for (const { path, module, isAuth, isInvitation, isClasses } of routes) {
       try {
         if (isAuth) {
           // Handle auth routes specially
@@ -344,6 +350,13 @@ export class Application {
           if (invitationRoutes) {
             this.app.use(path, invitationRoutes);
             this.logger.info(`Loaded invitation routes: ${path}`);
+          }
+        } else if (isClasses) {
+          // Handle classes routes specially
+          const classesRoutes = await this.setupClassesModule();
+          if (classesRoutes) {
+            this.app.use(path, classesRoutes);
+            this.logger.info(`Loaded classes routes: ${path}`);
           }
         } else {
           // Handle other routes
@@ -422,6 +435,40 @@ export class Application {
       return invitationModule.invitationRoutes;
     } catch (error) {
       this.logger.error("Failed to setup invitation module", { error });
+      throw error;
+    }
+  }
+
+  private async setupClassesModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before classes module"
+        );
+      }
+
+      // Create classes routes using the factory function
+      const classesRoutes = createClassesRoutes(
+        this.database,
+        this.logger,
+        tokenService,
+        authRepository,
+        passwordService,
+        cookieService
+      );
+
+      this.logger.info("Classes module initialized successfully");
+      return classesRoutes;
+    } catch (error) {
+      this.logger.error("Failed to setup classes module", { error });
       throw error;
     }
   }

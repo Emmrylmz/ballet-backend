@@ -13,6 +13,7 @@ import { AuthFactory } from "../features/auth/auth.factory.js";
 import { InvitationFactory } from "../features/invitations/invitation.factory.js";
 import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
 import { InvitationRepository } from "../features/invitations/invitation.repository.js";
+import createClassesRoutes from "../features/classes/classes.routes.js";
 export class Application {
     app;
     server = null;
@@ -210,12 +211,17 @@ export class Application {
                 isInvitation: true,
             },
             {
+                path: "/api/v1/classes",
+                module: "classes",
+                isClasses: true,
+            },
+            {
                 path: "/api/v1/dashboard",
                 module: "../features/dashboard/dashboard.routes.js",
                 isAuth: false,
             },
         ];
-        for (const { path, module, isAuth, isInvitation } of routes) {
+        for (const { path, module, isAuth, isInvitation, isClasses } of routes) {
             try {
                 if (isAuth) {
                     const authFactory = AuthFactory.getInstance();
@@ -230,6 +236,13 @@ export class Application {
                     if (invitationRoutes) {
                         this.app.use(path, invitationRoutes);
                         this.logger.info(`Loaded invitation routes: ${path}`);
+                    }
+                }
+                else if (isClasses) {
+                    const classesRoutes = await this.setupClassesModule();
+                    if (classesRoutes) {
+                        this.app.use(path, classesRoutes);
+                        this.logger.info(`Loaded classes routes: ${path}`);
                     }
                 }
                 else {
@@ -278,16 +291,36 @@ export class Application {
             const tokenService = authFactory.getTokenService();
             const authRepository = authFactory.getAuthRepository();
             const passwordService = authFactory.getPasswordService();
-            if (!tokenService || !authRepository || !passwordService) {
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !passwordService || !cookieService) {
                 throw new Error("Auth module must be initialized before invitation module");
             }
             const invitationFactory = InvitationFactory.getInstance();
-            const invitationModule = invitationFactory.createInvitationModule(this.database, this.logger, tokenService, authRepository, passwordService);
+            const invitationModule = invitationFactory.createInvitationModule(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
             this.logger.info("Invitation module initialized successfully");
             return invitationModule.invitationRoutes;
         }
         catch (error) {
             this.logger.error("Failed to setup invitation module", { error });
+            throw error;
+        }
+    }
+    async setupClassesModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const passwordService = authFactory.getPasswordService();
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !passwordService || !cookieService) {
+                throw new Error("Auth module must be initialized before classes module");
+            }
+            const classesRoutes = createClassesRoutes(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
+            this.logger.info("Classes module initialized successfully");
+            return classesRoutes;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup classes module", { error });
             throw error;
         }
     }

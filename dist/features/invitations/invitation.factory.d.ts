@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { DatabaseService } from '../../services/DatabaseService.js';
 import { LoggerService } from '../../services/LoggerService.js';
 import { TokenService } from '../auth/services/TokenService.js';
+import { CookieService } from '../auth/services/CookieService.js';
 import { AuthRepository } from '../auth/auth.repository.js';
 import { PasswordService } from '../auth/services/PasswordService.js';
 import { InvitationService } from './invitation.service.js';
@@ -13,7 +14,7 @@ export declare class InvitationFactory {
     private invitationRoutes?;
     private constructor();
     static getInstance(): InvitationFactory;
-    createInvitationModule(db: DatabaseService, logger: LoggerService, tokenService: TokenService, authRepository: AuthRepository, passwordService: PasswordService): {
+    createInvitationModule(db: DatabaseService, logger: LoggerService, tokenService: TokenService, authRepository: AuthRepository, passwordService: PasswordService, cookieService: CookieService): {
         invitationService: InvitationService;
         invitationController: InvitationController;
         invitationRoutes: Router;
@@ -22,4 +23,4 @@ export declare class InvitationFactory {
     getInvitationController(): InvitationController | undefined;
     getInvitationRoutes(): Router | undefined;
 }
-export declare const createInvitationModule: (db: DatabaseService, logger: LoggerService, tokenService: TokenService, authRepository: AuthRepository, passwordService: PasswordService) => Router;
+export declare const createInvitationModule: (db: DatabaseService, logger: LoggerService, tokenService: TokenService, authRepository: AuthRepository, passwordService: PasswordService, cookieService: CookieService) => Router;

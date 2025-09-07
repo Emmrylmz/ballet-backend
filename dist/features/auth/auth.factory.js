@@ -39,9 +39,9 @@ export class AuthFactory {
             supportEmail: config.supportEmail
         });
         this.cookieService = new CookieService(logger, {
-            domain: process.env.COOKIE_DOMAIN,
+            domain: '',
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: 'lax',
             accessTokenExpiry: config.securitySettings.tokenExpiryTime * 60,
             refreshTokenExpiry: config.securitySettings.refreshTokenExpiryTime * 24 * 60 * 60
         });

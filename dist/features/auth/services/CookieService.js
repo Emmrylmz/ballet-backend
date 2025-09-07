@@ -19,14 +19,15 @@ export class CookieService {
     setAccessTokenCookie(res, token) {
         try {
             const cookieOptions = {
-                httpOnly: true,
+                httpOnly: false,
                 secure: this.config.secure,
                 sameSite: this.config.sameSite,
                 maxAge: this.config.accessTokenExpiry * 1000,
                 path: "/",
-                ...(this.config.domain && { domain: this.config.domain }),
+                ...(this.config.domain && this.config.domain.length > 0 && { domain: this.config.domain }),
             };
             res.cookie("access_token", token, cookieOptions);
+            console.log("🍪 Access token cookie set");
             this.logger.debug("Access token cookie set", {
                 maxAge: cookieOptions.maxAge,
                 secure: cookieOptions.secure,
@@ -41,14 +42,15 @@ export class CookieService {
     setRefreshTokenCookie(res, token) {
         try {
             const cookieOptions = {
-                httpOnly: true,
+                httpOnly: false,
                 secure: this.config.secure,
                 sameSite: this.config.sameSite,
                 maxAge: this.config.refreshTokenExpiry * 1000,
                 path: "/",
-                ...(this.config.domain && { domain: this.config.domain }),
+                ...(this.config.domain && this.config.domain.length > 0 && { domain: this.config.domain }),
             };
             res.cookie("refresh_token", token, cookieOptions);
+            console.log("🍪 Refresh token cookie set");
             this.logger.debug("Refresh token cookie set", {
                 maxAge: cookieOptions.maxAge,
                 secure: cookieOptions.secure,
@@ -63,9 +65,14 @@ export class CookieService {
     setTokenCookies(res, accessToken, refreshToken) {
         this.setAccessTokenCookie(res, accessToken);
         this.setRefreshTokenCookie(res, refreshToken);
+        console.log("success?");
     }
     getAccessTokenFromCookies(req) {
-        return req.cookies?.access_token;
+        const token = req.cookies?.access_token;
+        if (token) {
+            console.log("🍪 Access token found in cookies");
+        }
+        return token;
     }
     getRefreshTokenFromCookies(req) {
         return req.cookies?.refresh_token;
@@ -77,7 +84,7 @@ export class CookieService {
                 secure: this.config.secure,
                 sameSite: this.config.sameSite,
                 path: "/",
-                ...(this.config.domain && { domain: this.config.domain }),
+                ...(this.config.domain && this.config.domain.length > 0 && { domain: this.config.domain }),
             };
             res.clearCookie("access_token", cookieOptions);
             this.logger.debug("Access token cookie cleared");
@@ -93,7 +100,7 @@ export class CookieService {
                 secure: this.config.secure,
                 sameSite: this.config.sameSite,
                 path: "/",
-                ...(this.config.domain && { domain: this.config.domain }),
+                ...(this.config.domain && this.config.domain.length > 0 && { domain: this.config.domain }),
             };
             res.clearCookie("refresh_token", cookieOptions);
             this.logger.debug("Refresh token cookie cleared");

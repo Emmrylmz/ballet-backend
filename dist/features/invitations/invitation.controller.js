@@ -1,4 +1,4 @@
-import { INVITATION_ERRORS, SUCCESS_MESSAGES } from "../../constants/errorMessages.js";
+import { INVITATION_ERRORS, SUCCESS_MESSAGES, } from "../../constants/errorMessages.js";
 export class InvitationController {
     invitationService;
     logger;
@@ -78,7 +78,7 @@ export class InvitationController {
                 return;
             }
             const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-            const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+            const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
             if (!phoneRegex.test(cleanPhone) || cleanPhone.length < 10) {
                 res.status(400).json({
                     success: false,
@@ -110,7 +110,8 @@ export class InvitationController {
             });
         }
         catch (error) {
-            if (error.message?.includes("aktif bir davetiye") || error.message?.includes("active instructor invitation")) {
+            if (error.message?.includes("aktif bir davetiye") ||
+                error.message?.includes("active instructor invitation")) {
                 res.status(409).json({
                     success: false,
                     message: INVITATION_ERRORS.DUPLICATE_INVITATION,
@@ -118,7 +119,8 @@ export class InvitationController {
                 });
                 return;
             }
-            if (error.message?.includes("zaten bu kurumun üyesi") || error.message?.includes("already a member")) {
+            if (error.message?.includes("zaten bu kurumun üyesi") ||
+                error.message?.includes("already a member")) {
                 res.status(409).json({
                     success: false,
                     message: INVITATION_ERRORS.USER_ALREADY_EXISTS,
@@ -126,7 +128,8 @@ export class InvitationController {
                 });
                 return;
             }
-            if (error.message?.includes("Sadece yöneticiler") || error.message?.includes("Only managers")) {
+            if (error.message?.includes("Sadece yöneticiler") ||
+                error.message?.includes("Only managers")) {
                 res.status(403).json({
                     success: false,
                     message: INVITATION_ERRORS.ONLY_MANAGERS_CAN_INVITE_INSTRUCTORS,
@@ -134,7 +137,8 @@ export class InvitationController {
                 });
                 return;
             }
-            if (error.message?.includes("davetiye gönderimi devre dışı") || error.message?.includes("invitations are disabled")) {
+            if (error.message?.includes("davetiye gönderimi devre dışı") ||
+                error.message?.includes("invitations are disabled")) {
                 res.status(400).json({
                     success: false,
                     message: INVITATION_ERRORS.INVITATIONS_DISABLED,
@@ -252,7 +256,6 @@ export class InvitationController {
             this.logger.error("Failed to revoke invitation", {
                 error,
                 userId: req.user?.id,
-                invitationId: invitationId,
             });
             next(error);
         }
@@ -289,9 +292,10 @@ export class InvitationController {
                     usageLimit: validation.invitation?.usageLimit,
                     usageCount: validation.invitation?.usageCount,
                     warningMessage: validation.warningMessage,
-                    ...(validation.invitation?.type === "instructor" && validation.invitation.instructorEmail && {
+                    ...(validation.invitation?.type === "instructor" &&
+                        validation.invitation.instructorEmail && {
                         requiredEmail: validation.invitation.instructorEmail,
-                        emailNote: "This instructor invitation requires you to be logged in with the invited email address"
+                        emailNote: "This instructor invitation requires you to be logged in with the invited email address",
                     }),
                 },
                 message: "Valid invitation",

@@ -1,5 +1,5 @@
 import { AuthError, } from "./auth.types.js";
-import { AUTH_ERRORS, SUCCESS_MESSAGES } from "../../constants/errorMessages.js";
+import { AUTH_ERRORS, SUCCESS_MESSAGES, } from "../../constants/errorMessages.js";
 export class AuthService {
     authRepository;
     tokenService;
@@ -158,7 +158,8 @@ export class AuthService {
             return {
                 success: true,
                 data: {
-                    message: SUCCESS_MESSAGES.REGISTER_SUCCESS + ". Lütfen hesabınızı aktifleştirmek için e-postanızı kontrol edin.",
+                    message: SUCCESS_MESSAGES.REGISTER_SUCCESS +
+                        ". Lütfen hesabınızı aktifleştirmek için e-postanızı kontrol edin.",
                 },
             };
         }
@@ -331,7 +332,8 @@ export class AuthService {
             return {
                 success: true,
                 data: {
-                    message: SUCCESS_MESSAGES.PASSWORD_CHANGED + ". Lütfen yeni şifrenizle giriş yapın.",
+                    message: SUCCESS_MESSAGES.PASSWORD_CHANGED +
+                        ". Lütfen yeni şifrenizle giriş yapın.",
                 },
             };
         }
@@ -410,7 +412,7 @@ export class AuthService {
             }
             const user = await this.authRepository.findUserById(tokenData.sub);
             if (!user || user.status !== "active") {
-                await this.tokenService.revokeRefreshToken(refreshData.refreshToken);
+                await this.tokenService.revokeRefreshToken(refreshToken);
                 throw this.createAuthError("USER_NOT_FOUND", AUTH_ERRORS.USER_NOT_FOUND, 404);
             }
             const newTokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);

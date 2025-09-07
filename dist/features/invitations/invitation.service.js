@@ -1,12 +1,14 @@
 import crypto from "crypto";
-import { INVITATION_ERRORS, AUTH_ERRORS, formatMessage } from "../../constants/errorMessages.js";
+import { INVITATION_ERRORS, AUTH_ERRORS, formatMessage, } from "../../constants/errorMessages.js";
 export class InvitationService {
     invitationRepository;
     authRepository;
+    passwordService;
     logger;
-    constructor(invitationRepository, authRepository, logger) {
+    constructor(invitationRepository, authRepository, passwordService, logger) {
         this.invitationRepository = invitationRepository;
         this.authRepository = authRepository;
+        this.passwordService = passwordService;
         this.logger = logger;
     }
     async createInstructorInvitation(request, createdBy) {
@@ -80,7 +82,7 @@ export class InvitationService {
                     request.establishmentId,
                     `Invitation created`,
                     `Instructor invitation sent to ${normalizedEmail} (${request.phoneNumber})`,
-                    createdBy
+                    createdBy,
                 ]);
                 return invitationId;
             });
@@ -101,7 +103,7 @@ export class InvitationService {
                 status: "active",
                 createdBy,
                 createdByName: invitation.invitation.createdByName,
-                message: request.message,
+                message: request.message || "",
                 usageLimit: 1,
                 usageCount: 0,
                 expiresAt: expiresAt.toISOString(),
@@ -141,7 +143,9 @@ export class InvitationService {
             const usageLimit = request.usageLimit || settings.studentInvitationDefaultUsageLimit;
             const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
             if (expiryHours > settings.studentInvitationMaxHours) {
-                throw new Error(formatMessage("Geçerlilik süresi {max} saati geçemez", { max: settings.studentInvitationMaxHours }));
+                throw new Error(formatMessage("Geçerlilik süresi {max} saati geçemez", {
+                    max: settings.studentInvitationMaxHours,
+                }));
             }
             if (usageLimit > 50) {
                 throw new Error("Kullanım limiti 50 kişiyi geçemez");
@@ -236,8 +240,11 @@ export class InvitationService {
                 throw new Error(AUTH_ERRORS.USER_NOT_FOUND);
             }
             if (invitation.type === "instructor" && invitation.instructorEmail) {
-                if (user.email.toLowerCase().trim() !== invitation.instructorEmail.toLowerCase().trim()) {
-                    throw new Error(formatMessage(INVITATION_ERRORS.EMAIL_MISMATCH, { email: invitation.instructorEmail }));
+                if (user.email.toLowerCase().trim() !==
+                    invitation.instructorEmail.toLowerCase().trim()) {
+                    throw new Error(formatMessage(INVITATION_ERRORS.EMAIL_MISMATCH, {
+                        email: invitation.instructorEmail,
+                    }));
                 }
             }
             this.logger.info("Processing invitation acceptance", {
@@ -273,13 +280,13 @@ export class InvitationService {
           WHERE id = $1
         `, [invitation.id]);
                 if (invitation.type === "instructor") {
-                    const exists = await this.invitationRepository.tableExists('instructor_invitations');
+                    const exists = await this.invitationRepository.tableExists("instructor_invitations");
                     if (exists) {
                         await client.query(`
               UPDATE instructor_invitations 
               SET status = $1, accepted_at = NOW(), updated_at = NOW()
               WHERE invitation_id = $2
-            `, ['accepted', invitation.id]);
+            `, ["accepted", invitation.id]);
                     }
                 }
                 await client.query(`
@@ -348,15 +355,15 @@ export class InvitationService {
                 }
             }
             await this.invitationRepository.db.transaction(async (client) => {
-                await client.query('UPDATE invitations SET status = $1, updated_at = NOW() WHERE id = $2', ['revoked', invitationId]);
+                await client.query("UPDATE invitations SET status = $1, updated_at = NOW() WHERE id = $2", ["revoked", invitationId]);
                 if (invitationDetails.type === "instructor") {
-                    const exists = await this.invitationRepository.tableExists('instructor_invitations');
+                    const exists = await this.invitationRepository.tableExists("instructor_invitations");
                     if (exists) {
                         await client.query(`
               UPDATE instructor_invitations 
               SET status = $1, updated_at = NOW()
               WHERE invitation_id = $2
-            `, ['revoked', invitationId]);
+            `, ["revoked", invitationId]);
                     }
                 }
                 await client.query(`
@@ -367,14 +374,14 @@ export class InvitationService {
                     invitationDetails.establishmentId,
                     `Invitation revoked`,
                     `${invitationDetails.type} invitation revoked`,
-                    revokedBy
+                    revokedBy,
                 ]);
             });
             this.logger.info("Invitation revoked", {
                 invitationId,
                 revokedBy,
                 invitationType: invitationDetails.type,
-                userRole
+                userRole,
             });
         }
         catch (error) {

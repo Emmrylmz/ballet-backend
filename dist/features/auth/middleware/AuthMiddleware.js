@@ -1,4 +1,5 @@
 import { AUTH_ERRORS } from "../../../constants/errorMessages.js";
+import crypto from "crypto";
 export class AuthMiddleware {
     tokenService;
     cookieService;
@@ -13,7 +14,12 @@ export class AuthMiddleware {
     authenticate() {
         return async (req, res, next) => {
             try {
-                if (!this.cookieService.hasValidCookieStructure(req)) {
+                if (!this.cookieService) {
+                    this.logger.error("CookieService not initialized in AuthMiddleware");
+                    this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+                    return;
+                }
+                if (!req.cookies || typeof req.cookies !== "object") {
                     this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
@@ -27,7 +33,7 @@ export class AuthMiddleware {
                 if (!tokenPayload) {
                     this.logger.debug("Invalid access token from cookies");
                     const refreshResult = await this.attemptTokenRefresh(req, res);
-                    if (!refreshResult.success) {
+                    if (!refreshResult || !refreshResult.success) {
                         this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
                         return;
                     }
@@ -37,7 +43,9 @@ export class AuthMiddleware {
                 }
                 const user = await this.authRepository.findUserById(tokenPayload.sub);
                 if (!user || user.status !== "active") {
-                    this.logger.warn("User not found or inactive", { userId: tokenPayload.sub });
+                    this.logger.warn("User not found or inactive", {
+                        userId: tokenPayload.sub,
+                    });
                     this.cookieService.clearAllAuthCookies(res);
                     this.sendUnauthorized(res, AUTH_ERRORS.USER_NOT_FOUND);
                     return;
@@ -68,7 +76,19 @@ export class AuthMiddleware {
                 next();
             }
             catch (error) {
-                this.logger.error("Authentication middleware error", { error });
+                const errorMessage = error instanceof Error
+                    ? error.message
+                    : error
+                        ? String(error)
+                        : "Unknown error occurred";
+                const errorStack = error instanceof Error ? error.stack : undefined;
+                this.logger.error("Authentication middleware error", {
+                    error: errorMessage,
+                    stack: errorStack,
+                    originalError: error
+                        ? JSON.stringify(error, Object.getOwnPropertyNames(error))
+                        : null,
+                });
                 this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
             }
         };
@@ -100,9 +120,10 @@ export class AuthMiddleware {
                     code: "AUTH_REQUIRED",
                 });
             }
-            console.log(req.headers);
-            const establishmentId = "0a9edc36-9a58-4f0b-a007-3f1ae8ad050d";
-            console.log(establishmentId);
+            const establishmentId = req.headers["x-establishment-id"] ||
+                req.params.establishmentId ||
+                req.query.establishmentId ||
+                req.body.establishmentId;
             if (!establishmentId) {
                 return res.status(400).json({
                     success: false,
@@ -111,7 +132,6 @@ export class AuthMiddleware {
                 });
             }
             const role = await this.authRepository.getRole(req.user.id, establishmentId);
-            console.log(role, "DEBUG1");
             if (!role) {
                 return res.status(403).json({
                     success: false,
@@ -132,6 +152,11 @@ export class AuthMiddleware {
     optional() {
         return async (req, res, next) => {
             try {
+                if (!this.cookieService) {
+                    this.logger.error("CookieService not initialized in optional AuthMiddleware");
+                    next();
+                    return;
+                }
                 const accessToken = this.cookieService.getAccessTokenFromCookies(req);
                 if (!accessToken) {
                     next();
@@ -252,7 +277,7 @@ export class AuthMiddleware {
             const user = await this.authRepository.findUserById(refreshPayload.sub);
             if (!user || user.status !== "active") {
                 this.logger.warn("User not found or inactive during token refresh", {
-                    userId: refreshPayload.sub
+                    userId: refreshPayload.sub,
                 });
                 this.cookieService.clearAllAuthCookies(res);
                 return { success: false };
@@ -261,7 +286,7 @@ export class AuthMiddleware {
             await this.tokenService.revokeRefreshToken(refreshToken);
             this.cookieService.setTokenCookies(res, newTokenPair.accessToken, newTokenPair.refreshToken);
             this.logger.info("Token refreshed successfully via middleware", {
-                userId: user.id
+                userId: user.id,
             });
             return {
                 success: true,
@@ -273,8 +298,20 @@ export class AuthMiddleware {
             };
         }
         catch (error) {
-            this.logger.error("Token refresh failed in middleware", { error });
-            this.cookieService.clearAllAuthCookies(res);
+            this.logger.error("Token refresh failed in middleware", {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
+            try {
+                this.cookieService.clearAllAuthCookies(res);
+            }
+            catch (clearError) {
+                this.logger.error("Failed to clear cookies during token refresh error", {
+                    clearError: clearError instanceof Error
+                        ? clearError.message
+                        : String(clearError),
+                });
+            }
             return { success: false };
         }
     }
@@ -286,7 +323,6 @@ export class AuthMiddleware {
         });
     }
     hashToken(token) {
-        const crypto = require("crypto");
         return crypto.createHash("sha256").update(token).digest("hex");
     }
     getClientIp(req) {

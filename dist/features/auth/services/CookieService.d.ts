@@ -11,7 +11,7 @@ export declare class CookieService {
     private logger;
     private readonly config;
     constructor(logger: LoggerService, config: {
-        domain?: string;
+        domain: string;
         secure?: boolean;
         sameSite?: "strict" | "lax" | "none";
         accessTokenExpiry: number;

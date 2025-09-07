@@ -2,11 +2,13 @@ import { LoggerService } from "../../services/LoggerService.js";
 import { InvitationRepository } from "./invitation.repository.js";
 import { AuthRepository } from "../auth/auth.repository.js";
 import { CreateInvitationRequest, InvitationResponse, InvitationValidationResult, InvitationFilters, InvitationSettings, CreateInstructorInvitationRequest } from "./invitation.types.js";
+import { PasswordService } from "../auth/services/PasswordService.js";
 export declare class InvitationService {
     private invitationRepository;
     private authRepository;
+    private passwordService;
     private logger;
-    constructor(invitationRepository: InvitationRepository, authRepository: AuthRepository, logger: LoggerService);
+    constructor(invitationRepository: InvitationRepository, authRepository: AuthRepository, passwordService: PasswordService, logger: LoggerService);
     createInstructorInvitation(request: CreateInstructorInvitationRequest, createdBy: string): Promise<InvitationResponse>;
     createInvitation(request: CreateInvitationRequest, createdBy: string): Promise<InvitationResponse>;
     validateInvitation(token: string, userId?: string): Promise<InvitationValidationResult>;
