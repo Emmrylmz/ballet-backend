@@ -1,6 +1,6 @@
 import { CohortsRepository } from "./cohorts.repository.js";
 import { LoggerService } from "../../services/LoggerService.js";
-import { Cohort, CohortStats, CreateCohortRequest, CohortFilters, CohortResponse, PaginatedCohortResponse, GenerateSessionsForCohortRequest, CohortSessionGeneration } from "./cohorts.types.js";
+import { Cohort, CohortStats, CreateCohortRequest, UpdateCohortRequest, CohortFilters, CohortResponse, PaginatedCohortResponse, GenerateSessionsForCohortRequest, CohortSessionGeneration } from "./cohorts.types.js";
 import { DatabaseService } from "../../services/DatabaseService.js";
 export declare class CohortsService {
     private cohortsRepository;
@@ -8,6 +8,7 @@ export declare class CohortsService {
     private logger;
     constructor(cohortsRepository: CohortsRepository, db: DatabaseService, logger: LoggerService);
     createCohort(establishmentId: string, cohort: CreateCohortRequest, userId: string): Promise<CohortResponse<Cohort>>;
+    updateCohort(establishmentId: string, cohortId: string, updates: UpdateCohortRequest, userId: string): Promise<CohortResponse<Cohort>>;
     generateCohortSessions(establishmentId: string, cohortId: string, options: GenerateSessionsForCohortRequest | undefined, userId: string): Promise<CohortResponse<CohortSessionGeneration>>;
     bulkEnrollStudents(establishmentId: string, cohortId: string, studentIds: string[], paymentType: string, userId: string): Promise<CohortResponse<{
         enrolled: number;
@@ -24,6 +25,7 @@ export declare class CohortsService {
     }, userId: string): Promise<CohortResponse<Cohort>>;
     private validateTermDates;
     private validateSchedule;
+    private checkInstructorAvailabilityForUpdate;
     private checkInstructorAvailability;
     private calculateSessionDates;
     private isDateInHolidayBreak;

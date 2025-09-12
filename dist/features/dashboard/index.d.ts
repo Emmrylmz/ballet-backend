@@ -1,5 +1,6 @@
-export { DashboardRepository } from './dashboard.repository.js';
-export { DashboardService } from './dashboard.service.js';
-export { DashboardController } from './dashboard.controller.js';
-export { default as createDashboardRoutes } from './dashboard.routes.js';
-export type { DashboardStats, ClassScheduleItem, RecentActivity, WeeklySummaryData, ActivityFilters, } from './dashboard.types.js';
+export { InstructorDashboardRepository } from './instructorDashboard.repository.js';
+export { InstructorDashboardService } from './instructorDashboard.service.js';
+export { InstructorDashboardController } from './instructorDashboard.controller.js';
+export { default as createInstructorDashboardRoutes } from './instructorDashboard.routes.js';
+export { DashboardFactory } from './dashboard.factory.js';
+export type { DashboardStats, InstructorActivity, WeeklySummary, ActivityFilters, } from './instructorDashboard.types.js';

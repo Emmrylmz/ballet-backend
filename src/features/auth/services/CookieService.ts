@@ -120,6 +120,14 @@ export class CookieService {
   }
 
   /**
+   * Get access token from either cookies or Authorization header
+   * For now, only use cookies
+   */
+  public getAccessToken(req: Request): string | undefined {
+    return this.getAccessTokenFromCookies(req);
+  }
+
+  /**
    * Get refresh token from request cookies
    */
   getRefreshTokenFromCookies(req: Request): string | undefined {

@@ -1,18 +1,35 @@
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 export class CohortsRepository {
     db;
     constructor(db) {
         this.db = db;
     }
+    async logActivity(establishmentId, activityType, title, description, userId, studentId, sessionId) {
+        await this.db.query(`
+      INSERT INTO activities (
+        establishment_id, activity_type, title, description,
+        user_id, student_id, session_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [
+            establishmentId,
+            activityType,
+            title,
+            description,
+            userId || null,
+            studentId || null,
+            sessionId || null,
+        ]);
+    }
     async createCohort(establishmentId, cohort) {
         const result = await this.db.query(`
-      INSERT INTO cohorts (
-        establishment_id, template_id, instructor_id, name, description,
-        age_min, age_max, max_students, schedule_days, schedule_start_time,
-        schedule_duration_minutes, term_start_date, term_end_date,
-        holiday_breaks, makeup_policy
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *
-    `, [
+    INSERT INTO cohorts (
+      establishment_id, template_id, instructor_id, name, description,
+      age_min, age_max, max_students, schedule_days, schedule_start_time,
+      -- 'schedule_duration_minutes' has been REMOVED from this list
+      term_start_date, term_end_date, holiday_breaks, makeup_policy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) -- Placeholder count is now 14
+    RETURNING *
+  `, [
             establishmentId,
             cohort.templateId,
             cohort.instructorId,
@@ -23,7 +40,6 @@ export class CohortsRepository {
             cohort.maxStudents,
             cohort.scheduleDays,
             cohort.scheduleStartTime,
-            cohort.scheduleDurationMinutes,
             cohort.termStartDate,
             cohort.termEndDate,
             JSON.stringify(cohort.holidayBreaks || []),
@@ -208,13 +224,13 @@ export class CohortsRepository {
         return result.rowCount > 0;
     }
     async addStudentToCohort(establishmentId, cohortId, request) {
-        const cohortCheck = await this.db.query('SELECT 1 FROM cohorts WHERE id = $1 AND establishment_id = $2', [cohortId, establishmentId]);
+        const cohortCheck = await this.db.query("SELECT 1 FROM cohorts WHERE id = $1 AND establishment_id = $2", [cohortId, establishmentId]);
         if (cohortCheck.rows.length === 0) {
-            throw new Error('Cohort not found or access denied');
+            throw new Error(ERROR_MESSAGES.COHORT_NOT_FOUND_OR_ACCESS_DENIED);
         }
         const existing = await this.isStudentEnrolled(cohortId, request.studentId);
         if (existing) {
-            throw new Error('Student already enrolled in this cohort');
+            throw new Error(ERROR_MESSAGES.STUDENT_ALREADY_ENROLLED);
         }
         const capacityCheck = await this.db.query(`
       SELECT c.max_students,
@@ -227,7 +243,7 @@ export class CohortsRepository {
         if (capacityCheck.rows.length > 0) {
             const { max_students, current_enrollment } = capacityCheck.rows[0];
             if (parseInt(current_enrollment) >= max_students) {
-                throw new Error('Cohort is at full capacity');
+                throw new Error(ERROR_MESSAGES.COHORT_AT_FULL_CAPACITY);
             }
         }
         const result = await this.db.query(`
@@ -239,17 +255,17 @@ export class CohortsRepository {
             cohortId,
             request.studentId,
             request.paymentType,
-            request.joinedDate || new Date().toISOString().split('T')[0],
+            request.joinedDate || new Date().toISOString().split("T")[0],
             request.notes || null,
         ]);
         return this.mapMembershipRow(result.rows[0]);
     }
     async removeStudentFromCohort(establishmentId, cohortId, studentId, request = {}) {
-        const cohortCheck = await this.db.query('SELECT 1 FROM cohorts WHERE id = $1 AND establishment_id = $2', [cohortId, establishmentId]);
+        const cohortCheck = await this.db.query("SELECT 1 FROM cohorts WHERE id = $1 AND establishment_id = $2", [cohortId, establishmentId]);
         if (cohortCheck.rows.length === 0) {
-            throw new Error('Cohort not found or access denied');
+            throw new Error(ERROR_MESSAGES.COHORT_NOT_FOUND_OR_ACCESS_DENIED);
         }
-        const leftDate = request.leftDate || new Date().toISOString().split('T')[0];
+        const leftDate = request.leftDate || new Date().toISOString().split("T")[0];
         const result = await this.db.query(`
       UPDATE cohort_memberships 
       SET is_active = false, left_date = $1, notes = COALESCE($2, notes)
@@ -306,18 +322,17 @@ export class CohortsRepository {
         const limit = filters.limit || 50;
         const offset = filters.offset || 0;
         const result = await this.db.query(`
-      SELECT cm.*, 
-             CONCAT(s.first_name, ' ', s.last_name) as student_name,
-             s.email as student_email,
-             c.name as cohort_name
-      FROM cohort_memberships cm
-      JOIN cohorts c ON cm.cohort_id = c.id
-      LEFT JOIN students st ON cm.student_id = st.id
-      LEFT JOIN users s ON st.user_id = s.id
-      WHERE ${whereClause}
-      ORDER BY cm.joined_date DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `, [...queryParams, limit, offset]);
+  SELECT cm.*, 
+         CONCAT(u.first_name, ' ', u.last_name) as student_name,
+         u.email as student_email,
+         c.name as cohort_name
+  FROM cohort_memberships cm
+  JOIN cohorts c ON cm.cohort_id = c.id
+  LEFT JOIN users u ON cm.student_id = u.id  -- student_id is actually user_id
+  WHERE ${whereClause}
+  ORDER BY cm.joined_date DESC
+  LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `, [...queryParams, limit, offset]);
         const memberships = result.rows.map((row) => this.mapMembershipRowWithDetails(row));
         return { memberships, total };
     }
@@ -383,13 +398,13 @@ export class CohortsRepository {
         return result.rows.length > 0;
     }
     async getActiveCohortMembers(cohortId, beforeDate) {
-        const dateCondition = beforeDate ? 'AND joined_date <= $2' : '';
+        const dateCondition = beforeDate ? "AND joined_date <= $2" : "";
         const params = beforeDate ? [cohortId, beforeDate] : [cohortId];
         const result = await this.db.query(`
       SELECT student_id FROM cohort_memberships 
       WHERE cohort_id = $1 AND is_active = true ${dateCondition}
     `, params);
-        return result.rows.map(row => row.student_id);
+        return result.rows.map((row) => row.student_id);
     }
     mapCohortRow(row) {
         return {
@@ -409,7 +424,7 @@ export class CohortsRepository {
             termEndDate: row.term_end_date,
             holidayBreaks: (() => {
                 try {
-                    return typeof row.holiday_breaks === 'string'
+                    return typeof row.holiday_breaks === "string"
                         ? JSON.parse(row.holiday_breaks)
                         : row.holiday_breaks || [];
                 }

@@ -52,6 +52,9 @@ export declare class Application {
     private setupInvitationModule;
     private setupClassesModule;
     private setupCohortsModule;
+    private setupDashboardModule;
+    private setupStudentsModule;
+    private setupAttendanceModule;
     private loadRoute;
     private setupErrorHandling;
     private startServer;

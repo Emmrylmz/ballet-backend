@@ -16,7 +16,15 @@
       "Bash(PORT=8005 npm run dev)",
       "Bash(PORT=8006 npm run dev)",
       "Bash(PORT=8007 npm run dev)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(docker cp:*)",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"\\dt\")",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"\\d class_sessions\")",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"SELECT email, name FROM users LIMIT 5;\")",
+      "Bash(PORT=8005 npm start)",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"\\d cohorts\")",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"SELECT id, name, is_active FROM cohorts LIMIT 3;\")",
+      "Bash(winpty docker exec -it 7ca3bf4c4ba5d6e05bde4ca0223ff15ed6b84edc7e775c1874aa3d504ec953a6 psql -U postgres -d ballet_neli -c \"SELECT * FROM class_sessions LIMIT 3;\")"
     ],
     "deny": [],
     "ask": []

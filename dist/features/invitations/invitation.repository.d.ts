@@ -4,7 +4,7 @@ export declare class InvitationRepository {
     db: DatabaseService;
     private tableExistsCache;
     constructor(db: DatabaseService);
-    private tableExists;
+    tableExists(tableName: string): Promise<boolean>;
     createInvitation(invitation: {
         establishmentId: string;
         createdBy: string;
@@ -12,6 +12,7 @@ export declare class InvitationRepository {
         token: string;
         usageLimit: number;
         sessionId?: string;
+        cohortId?: string;
         message?: string;
         expiresAt: Date;
     }): Promise<string>;

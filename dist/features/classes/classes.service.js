@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 const CLASS_ERRORS = {
     TEMPLATE_NOT_FOUND: "Template not found",
     SESSION_NOT_FOUND: "Session not found",
@@ -47,7 +48,7 @@ export class ClassesService {
             return {
                 success: true,
                 data: createdTemplate,
-                message: "Class template created successfully",
+                message: ERROR_MESSAGES.CLASS_TEMPLATE_CREATED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -58,10 +59,10 @@ export class ClassesService {
             });
             return {
                 success: false,
-                message: "Failed to create class template",
+                message: ERROR_MESSAGES.FAILED_TO_CREATE_CLASS_TEMPLATE,
                 error: {
                     code: "CREATE_TEMPLATE_ERROR",
-                    message: "Internal server error",
+                    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
                 },
             };
         }
@@ -72,17 +73,17 @@ export class ClassesService {
             if (!template) {
                 return {
                     success: false,
-                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     error: {
                         code: "TEMPLATE_NOT_FOUND",
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                        message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     },
                 };
             }
             return {
                 success: true,
                 data: template,
-                message: "Class template retrieved successfully",
+                message: ERROR_MESSAGES.CLASS_TEMPLATE_RETRIEVED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -93,8 +94,11 @@ export class ClassesService {
             });
             return {
                 success: false,
-                message: "Failed to get class template",
-                error: { code: "GET_TEMPLATE_ERROR", message: "Internal server error" },
+                message: ERROR_MESSAGES.FAILED_TO_GET_CLASS_TEMPLATE,
+                error: {
+                    code: "GET_TEMPLATE_ERROR",
+                    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+                },
             };
         }
     }
@@ -142,8 +146,11 @@ export class ClassesService {
             if (Object.keys(updates).length === 0) {
                 return {
                     success: false,
-                    message: "No updates provided",
-                    error: { code: "NO_UPDATES", message: "No updates provided" },
+                    message: ERROR_MESSAGES.NO_UPDATES_PROVIDED,
+                    error: {
+                        code: "NO_UPDATES",
+                        message: ERROR_MESSAGES.NO_UPDATES_PROVIDED,
+                    },
                 };
             }
             const validation = this.validateTemplateUpdates(updates);
@@ -161,10 +168,10 @@ export class ClassesService {
             if (!updatedTemplate) {
                 return {
                     success: false,
-                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     error: {
                         code: "TEMPLATE_NOT_FOUND",
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                        message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     },
                 };
             }
@@ -172,7 +179,7 @@ export class ClassesService {
             return {
                 success: true,
                 data: updatedTemplate,
-                message: "Class template updated successfully",
+                message: ERROR_MESSAGES.CLASS_TEMPLATE_UPDATED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -183,10 +190,10 @@ export class ClassesService {
             });
             return {
                 success: false,
-                message: "Failed to update class template",
+                message: ERROR_MESSAGES.FAILED_TO_UPDATE_CLASS_TEMPLATE,
                 error: {
                     code: "UPDATE_TEMPLATE_ERROR",
-                    message: "Internal server error",
+                    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
                 },
             };
         }
@@ -202,10 +209,10 @@ export class ClassesService {
             if (!template) {
                 return {
                     success: false,
-                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     error: {
                         code: "TEMPLATE_NOT_FOUND",
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                        message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     },
                 };
             }
@@ -213,10 +220,10 @@ export class ClassesService {
             if (!deleted) {
                 return {
                     success: false,
-                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     error: {
                         code: "TEMPLATE_NOT_FOUND",
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                        message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     },
                 };
             }
@@ -242,15 +249,137 @@ export class ClassesService {
             };
         }
     }
-    async createClassSession(establishmentId, session, userId) {
+    async createBulkClassSessions(establishmentId, sessions, userId) {
         try {
-            this.logger.info("Creating class session", {
+            this.logger.info("Creating bulk class sessions", {
                 establishmentId,
-                sessionDate: session.sessionDate,
-                classTemplateId: session.classTemplateId,
+                sessionCount: sessions.length,
                 userId,
             });
-            const validation = await this.validateSessionData(establishmentId, session);
+            for (const session of sessions) {
+                const validation = await this.validateSessionData(establishmentId, session);
+                if (!validation.isValid) {
+                    return {
+                        success: false,
+                        message: `Session validation failed: ${validation.errors[0]}`,
+                        error: {
+                            code: "VALIDATION_ERROR",
+                            message: validation.errors[0] || "",
+                        },
+                    };
+                }
+            }
+            const createdSessions = await this.classesRepository.createBulkClassSessions(establishmentId, sessions);
+            await this.classesRepository.logActivity(establishmentId, "class", `Bulk created ${createdSessions.length} sessions`, `Created sessions for cohort or batch operation`, undefined, undefined, userId, "medium");
+            return {
+                success: true,
+                data: createdSessions,
+                message: `Successfully created ${createdSessions.length} sessions`,
+            };
+        }
+        catch (error) {
+            this.logger.error("Failed to create bulk class sessions", {
+                error,
+                establishmentId,
+            });
+            return {
+                success: false,
+                message: "Failed to create bulk sessions",
+                error: {
+                    code: "CREATE_BULK_SESSIONS_ERROR",
+                    message: "Internal server error",
+                },
+            };
+        }
+    }
+    async bulkEnrollUsersInSession(establishmentId, sessionId, userIds, userId, isWaitlist = false) {
+        try {
+            this.logger.info("Bulk enrolling users in session", {
+                establishmentId,
+                sessionId,
+                userCount: userIds.length,
+                userId,
+            });
+            const session = await this.classesRepository.getClassSession(establishmentId, sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    message: CLASS_ERRORS.SESSION_NOT_FOUND,
+                    error: {
+                        code: "SESSION_NOT_FOUND",
+                        message: CLASS_ERRORS.SESSION_NOT_FOUND,
+                    },
+                };
+            }
+            const enrollments = await this.classesRepository.bulkEnrollUsersInSession(establishmentId, sessionId, userIds, isWaitlist);
+            await this.classesRepository.logActivity(establishmentId, "enrollment", `Bulk enrolled ${enrollments.length} users`, `Session: ${session.sessionDate} at ${session.startTime}`, undefined, sessionId, userId, "medium");
+            return {
+                success: true,
+                data: enrollments,
+                message: `Successfully enrolled ${enrollments.length} users`,
+            };
+        }
+        catch (error) {
+            this.logger.error("Failed to bulk enroll users", {
+                error,
+                establishmentId,
+                sessionId,
+            });
+            return {
+                success: false,
+                message: "Failed to bulk enroll users",
+                error: {
+                    code: "BULK_ENROLL_ERROR",
+                    message: "Internal server error",
+                },
+            };
+        }
+    }
+    async createClassSession(establishmentId, session, userId) {
+        try {
+            this.logger.info("Creating class session for cohort", {
+                establishmentId,
+                sessionDate: session.sessionDate,
+                cohortId: session.cohortId,
+                userId,
+            });
+            const cohort = await this.classesRepository.getCohort(establishmentId, session.cohortId);
+            if (!cohort) {
+                return {
+                    success: false,
+                    message: "Cohort not found",
+                    error: {
+                        code: "COHORT_NOT_FOUND",
+                        message: "Cohort not found",
+                    },
+                };
+            }
+            const template = await this.classesRepository.getClassTemplate(establishmentId, cohort.templateId);
+            if (!template) {
+                return {
+                    success: false,
+                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    error: {
+                        code: "TEMPLATE_NOT_FOUND",
+                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    },
+                };
+            }
+            const sessionToCreate = {
+                ...session,
+                classTemplateId: cohort.templateId,
+                instructorId: session.override_instructor_id || cohort.instructorId,
+                capacity: cohort.maxStudents,
+                endTime: session.endTime || (() => {
+                    const startTime = new Date(`2000-01-01T${session.startTime}`);
+                    const endTime = new Date(startTime.getTime() + template.durationMinutes * 60000);
+                    return endTime.toTimeString().slice(0, 5);
+                })(),
+                cohortId: session.cohortId,
+                overrideInstructorId: session.override_instructor_id || undefined,
+                sessionType: session.sessionType || "regular",
+            };
+            const validation = await this.validateSessionData(establishmentId, sessionToCreate);
             if (!validation.isValid) {
                 return {
                     success: false,
@@ -261,42 +390,9 @@ export class ClassesService {
                     },
                 };
             }
-            if (session.classTemplateId) {
-                const template = await this.classesRepository.getClassTemplate(establishmentId, session.classTemplateId);
-                if (!template) {
-                    return {
-                        success: false,
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
-                        error: {
-                            code: "TEMPLATE_NOT_FOUND",
-                            message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
-                        },
-                    };
-                }
-                if (!template.isActive) {
-                    return {
-                        success: false,
-                        message: CLASS_ERRORS.TEMPLATE_INACTIVE,
-                        error: {
-                            code: "TEMPLATE_INACTIVE",
-                            message: CLASS_ERRORS.TEMPLATE_INACTIVE,
-                        },
-                    };
-                }
-                if (!session.endTime) {
-                    const startTime = new Date(`2000-01-01T${session.startTime}`);
-                    const endTime = new Date(startTime.getTime() + template.durationMinutes * 60000);
-                    session.endTime = endTime.toTimeString().slice(0, 5);
-                }
-                if (!session.capacity) {
-                    session.capacity = template.capacity;
-                }
-                if (!session.instructorId) {
-                    session.instructorId = template.instructorId;
-                }
-            }
-            const createdSession = await this.classesRepository.createClassSession(establishmentId, session);
-            await this.classesRepository.logActivity(establishmentId, "class", `Session created for ${session.sessionDate}`, `Start time: ${session.startTime}`, undefined, createdSession.id, userId, "medium");
+            const createdSession = await this.classesRepository.createClassSession(establishmentId, sessionToCreate);
+            await this.autoEnrollCohortMembers(establishmentId, createdSession.id, session.cohortId, userId);
+            await this.classesRepository.logActivity(establishmentId, "class", `Session created for cohort ${cohort.name}`, `Date: ${session.sessionDate}, Start time: ${session.startTime}`, undefined, createdSession.id, userId, "medium");
             return {
                 success: true,
                 data: createdSession,
@@ -331,10 +427,10 @@ export class ClassesService {
             if (!template || !template.isActive) {
                 return {
                     success: false,
-                    message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                    message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     error: {
                         code: "TEMPLATE_NOT_FOUND",
-                        message: CLASS_ERRORS.TEMPLATE_NOT_FOUND,
+                        message: ERROR_MESSAGES.TEMPLATE_NOT_FOUND,
                     },
                 };
             }
@@ -354,16 +450,15 @@ export class ClassesService {
                     const sessionRequest = {
                         classTemplateId: templateId,
                         instructorId: request.instructorId || template.instructorId,
-                        sessionDate,
+                        sessionDate: sessionDate || "",
                         startTime: request.startTime,
                         endTime,
                         capacity: request.capacity || template.capacity,
                         isRecurring: false,
+                        cohortId: "temp-template-cohort",
+                        override_instructor_id: undefined,
+                        sessionType: "regular",
                     };
-                    const result = await this.createClassSession(establishmentId, sessionRequest, userId);
-                    if (result.success && result.data) {
-                        sessions.push(result.data);
-                    }
                 }
             }
             return {
@@ -948,5 +1043,52 @@ export class ClassesService {
             hasValidPackage,
             packageCreditsRemaining,
         };
+    }
+    async getDropdownData(establishmentId) {
+        try {
+            const dropdownData = await this.classesRepository.getDropdownData(establishmentId);
+            return {
+                success: true,
+                data: dropdownData,
+                message: "Dropdown data retrieved successfully",
+            };
+        }
+        catch (error) {
+            this.logger.error("Failed to get dropdown data", {
+                error,
+                establishmentId,
+            });
+            return {
+                success: false,
+                message: "Failed to get dropdown data",
+                error: {
+                    code: "DROPDOWN_DATA_FETCH_ERROR",
+                    message: "Failed to retrieve dropdown data",
+                },
+            };
+        }
+    }
+    async autoEnrollCohortMembers(establishmentId, sessionId, cohortId, userId) {
+        try {
+            const members = await this.classesRepository.getCohortMembers(establishmentId, cohortId);
+            if (members.length === 0) {
+                return;
+            }
+            await this.classesRepository.bulkEnrollUsersInSession(establishmentId, sessionId, members, false);
+            this.logger.info("Auto-enrolled cohort members", {
+                establishmentId,
+                sessionId,
+                cohortId,
+                memberCount: members.length,
+            });
+        }
+        catch (error) {
+            this.logger.error("Failed to auto-enroll cohort members", {
+                error,
+                establishmentId,
+                sessionId,
+                cohortId,
+            });
+        }
     }
 }

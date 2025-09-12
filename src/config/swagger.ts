@@ -21,6 +21,11 @@ const options = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'access_token',
+        },
       },
       schemas: {
         // Auth Schemas
@@ -1049,11 +1054,219 @@ const options = {
             is_active: true,
           },
         },
+        // Invitation Schemas
+        CreateCohortInvitationRequest: {
+          type: 'object',
+          required: ['cohortId'],
+          properties: {
+            cohortId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID of the cohort to enroll students in'
+            },
+            message: {
+              type: 'string',
+              maxLength: 500,
+              description: 'Welcome message for students'
+            },
+            expiryHours: {
+              type: 'number',
+              minimum: 0.1,
+              maximum: 24,
+              description: 'Hours until invitation expires (max 24)'
+            },
+            usageLimit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              description: 'Maximum number of students who can use this link'
+            }
+          },
+          example: {
+            cohortId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+            message: 'Join our Tuesday Ballet Ages 10-12 class!',
+            expiryHours: 24,
+            usageLimit: 10
+          }
+        },
+        CreateStudentInvitationRequest: {
+          type: 'object',
+          properties: {
+            sessionId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Specific class session to enroll student in'
+            },
+            cohortId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Specific cohort to enroll student in (cannot be used with sessionId)'
+            },
+            message: {
+              type: 'string',
+              maxLength: 500,
+              description: 'Welcome message for students'
+            },
+            expiryHours: {
+              type: 'number',
+              minimum: 0.1,
+              maximum: 24,
+              description: 'Hours until invitation expires (max 24)'
+            },
+            usageLimit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              description: 'Maximum number of students who can use this link'
+            }
+          },
+          example: {
+            cohortId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+            message: 'Join our amazing dance class!',
+            expiryHours: 12,
+            usageLimit: 15
+          }
+        },
+        InvitationResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            data: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  format: 'uuid'
+                },
+                invitationUrl: {
+                  type: 'string',
+                  example: 'http://localhost:3000/invite/abc123def456'
+                },
+                cohortId: {
+                  type: 'string',
+                  format: 'uuid'
+                },
+                cohortName: {
+                  type: 'string',
+                  example: 'Tuesday Ballet Ages 10-12'
+                },
+                sessionId: {
+                  type: 'string',
+                  format: 'uuid'
+                },
+                sessionName: {
+                  type: 'string',
+                  example: 'Ballet Beginner Class'
+                },
+                type: {
+                  type: 'string',
+                  enum: ['instructor', 'student']
+                },
+                usageLimit: {
+                  type: 'integer',
+                  example: 10
+                },
+                usageCount: {
+                  type: 'integer',
+                  example: 0
+                },
+                expiresAt: {
+                  type: 'string',
+                  format: 'date-time'
+                },
+                createdAt: {
+                  type: 'string',
+                  format: 'date-time'
+                },
+                message: {
+                  type: 'string',
+                  example: 'Welcome to our dance studio!'
+                }
+              }
+            },
+            message: {
+              type: 'string',
+              example: 'Invitation created successfully'
+            }
+          }
+        },
+        InvitationValidationResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            data: {
+              type: 'object',
+              properties: {
+                establishmentName: {
+                  type: 'string',
+                  example: 'Ballet Neli Studio'
+                },
+                sessionName: {
+                  type: 'string',
+                  example: 'Ballet Beginner Class'
+                },
+                cohortName: {
+                  type: 'string',
+                  example: 'Tuesday Ballet Ages 10-12'
+                },
+                type: {
+                  type: 'string',
+                  enum: ['instructor', 'student']
+                },
+                message: {
+                  type: 'string',
+                  example: 'Welcome message'
+                },
+                expiresAt: {
+                  type: 'string',
+                  format: 'date-time'
+                },
+                usageLimit: {
+                  type: 'integer',
+                  example: 10
+                },
+                usageCount: {
+                  type: 'integer',
+                  example: 3
+                },
+                warningMessage: {
+                  type: 'string',
+                  example: 'You are already a member of this establishment'
+                },
+                cohortId: {
+                  type: 'string',
+                  format: 'uuid'
+                },
+                invitationType: {
+                  type: 'string',
+                  example: 'cohort'
+                },
+                enrollmentNote: {
+                  type: 'string',
+                  example: 'You will be automatically enrolled in this cohort and all its future sessions'
+                }
+              }
+            },
+            message: {
+              type: 'string',
+              example: 'Valid invitation'
+            }
+          }
+        },
       },
     },
     security: [
       {
         bearerAuth: [],
+      },
+      {
+        cookieAuth: [],
       },
     ],
   },

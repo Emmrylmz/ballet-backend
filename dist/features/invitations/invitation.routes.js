@@ -9,6 +9,20 @@ import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
 import Joi from "joi";
 const createStudentInvitationSchema = Joi.object({
     sessionId: Joi.string().uuid().optional(),
+    cohortId: Joi.string().uuid().optional(),
+    message: Joi.string().max(500).optional(),
+    expiryHours: Joi.number().min(0.1).max(24).optional(),
+    usageLimit: Joi.number().integer().min(1).max(50).optional(),
+}).custom((obj, helpers) => {
+    if (obj.sessionId && obj.cohortId) {
+        return helpers.error('any.invalid', {
+            message: 'Cannot specify both sessionId and cohortId. Choose one.'
+        });
+    }
+    return obj;
+});
+const createCohortInvitationSchema = Joi.object({
+    cohortId: Joi.string().uuid().required(),
     message: Joi.string().max(500).optional(),
     expiryHours: Joi.number().min(0.1).max(24).optional(),
     usageLimit: Joi.number().integer().min(1).max(50).optional(),
@@ -79,6 +93,7 @@ const createInvitationRoutes = (db, logger, tokenService, authRepository, passwo
     router.use(establishmentMiddleware.extractEstablishment());
     router.use(establishmentMiddleware.validateEstablishmentAccess());
     router.post("/create-student-invitation", invitationRateLimit, ValidationMiddleware.validateBody(createStudentInvitationSchema), controller.createStudentInvitation.bind(controller));
+    router.post("/create-cohort-invitation", invitationRateLimit, authMiddleware.requireEstablishmentAccess(["instructor", "manager"]), ValidationMiddleware.validateBody(createCohortInvitationSchema), controller.createCohortInvitation.bind(controller));
     router.post("/invite-instructor", invitationRateLimit, authMiddleware.requireEstablishmentAccess(["manager"]), ValidationMiddleware.validateBody(inviteInstructorSchema), controller.inviteInstructor.bind(controller));
     router.get("/", authMiddleware.requireEstablishmentAccess(["instructor", "manager"]), controller.getInvitations.bind(controller));
     router.get("/:invitationId/usage", controller.getInvitationUsage.bind(controller));

@@ -13,8 +13,11 @@ import { AuthFactory } from "../features/auth/auth.factory.js";
 import { InvitationFactory } from "../features/invitations/invitation.factory.js";
 import { InvitationCleanupService } from "../features/invitations/invitation.cleanup.service.js";
 import { InvitationRepository } from "../features/invitations/invitation.repository.js";
-import createClassesRoutes from "../features/classes/classes.routes.js";
-import { createCohortsRoutes } from "../features/cohorts/cohorts.routes.js";
+import { ClassesFactory } from "../features/classes/classes.factory.js";
+import { CohortsFactory } from "../features/cohorts/cohorts.factory.js";
+import { DashboardFactory } from "../features/dashboard/dashboard.factory.js";
+import { StudentsFactory } from "../features/students/students.factory.js";
+import { AttendanceFactory } from "../features/attendance/attendance.factory.js";
 export class Application {
     app;
     server = null;
@@ -223,11 +226,21 @@ export class Application {
             },
             {
                 path: "/api/v1/dashboard",
-                module: "../features/dashboard/dashboard.routes.js",
-                isAuth: false,
+                module: "dashboard",
+                isDashboard: true,
+            },
+            {
+                path: "/api/v1/students",
+                module: "students",
+                isStudents: true,
+            },
+            {
+                path: "/api/v1/attendance",
+                module: "attendance",
+                isAttendance: true,
             },
         ];
-        for (const { path, module, isAuth, isInvitation, isClasses, isCohorts } of routes) {
+        for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard, isStudents, isAttendance } of routes) {
             try {
                 if (isAuth) {
                     const authFactory = AuthFactory.getInstance();
@@ -256,6 +269,27 @@ export class Application {
                     if (cohortRoutes) {
                         this.app.use(path, cohortRoutes);
                         this.logger.info(`Loaded cohorts routes: ${path}`);
+                    }
+                }
+                else if (isDashboard) {
+                    const dashboardRoutes = await this.setupDashboardModule();
+                    if (dashboardRoutes) {
+                        this.app.use(path, dashboardRoutes);
+                        this.logger.info(`Loaded dashboard routes: ${path}`);
+                    }
+                }
+                else if (isStudents) {
+                    const studentsRoutes = await this.setupStudentsModule();
+                    if (studentsRoutes) {
+                        this.app.use(path, studentsRoutes);
+                        this.logger.info(`Loaded students routes: ${path}`);
+                    }
+                }
+                else if (isAttendance) {
+                    const attendanceRoutes = await this.setupAttendanceModule();
+                    if (attendanceRoutes) {
+                        this.app.use(path, attendanceRoutes);
+                        this.logger.info(`Loaded attendance routes: ${path}`);
                     }
                 }
                 else {
@@ -328,9 +362,10 @@ export class Application {
             if (!tokenService || !authRepository || !passwordService || !cookieService) {
                 throw new Error("Auth module must be initialized before classes module");
             }
-            const classesRoutes = createClassesRoutes(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
+            const classesFactory = ClassesFactory.getInstance();
+            const classesModule = classesFactory.createClassesModule(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
             this.logger.info("Classes module initialized successfully");
-            return classesRoutes;
+            return classesModule.classesRouter;
         }
         catch (error) {
             this.logger.error("Failed to setup classes module", { error });
@@ -344,17 +379,75 @@ export class Application {
             const authRepository = authFactory.getAuthRepository();
             const passwordService = authFactory.getPasswordService();
             const cookieService = authFactory.getCookieService();
-            if (!tokenService || !authRepository || !passwordService || !cookieService || !this.authMiddleware) {
+            if (!tokenService || !authRepository || !passwordService || !cookieService) {
                 throw new Error("Auth module must be initialized before cohorts module");
             }
-            const { EstablishmentMiddleware } = await import("../../middleware/EstablishmentMiddleware.js");
-            const establishmentMiddleware = new EstablishmentMiddleware(this.logger, this.database);
-            const cohortsRoutes = createCohortsRoutes(this.database, this.logger, this.authMiddleware, establishmentMiddleware);
+            const cohortsFactory = CohortsFactory.getInstance();
+            const cohortsModule = cohortsFactory.createCohortsModule(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
             this.logger.info("Cohorts module initialized successfully");
-            return cohortsRoutes;
+            return cohortsModule.cohortsRouter;
         }
         catch (error) {
             this.logger.error("Failed to setup cohorts module", { error });
+            throw error;
+        }
+    }
+    async setupDashboardModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !cookieService) {
+                throw new Error("Auth module must be initialized before dashboard module");
+            }
+            const dashboardFactory = DashboardFactory.getInstance();
+            const dashboardModule = dashboardFactory.createDashboardModule(this.database, this.logger, tokenService, authRepository, cookieService);
+            this.logger.info("Dashboard module initialized successfully");
+            return dashboardModule.dashboardRouter;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup dashboard module", { error });
+            throw error;
+        }
+    }
+    async setupStudentsModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const passwordService = authFactory.getPasswordService();
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !passwordService || !cookieService) {
+                throw new Error("Auth module must be initialized before students module");
+            }
+            const studentsFactory = StudentsFactory.getInstance();
+            const studentsModule = studentsFactory.createStudentsModule(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
+            this.logger.info("Students module initialized successfully");
+            return studentsModule.studentsRouter;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup students module", { error });
+            throw error;
+        }
+    }
+    async setupAttendanceModule() {
+        try {
+            const authFactory = AuthFactory.getInstance();
+            const tokenService = authFactory.getTokenService();
+            const authRepository = authFactory.getAuthRepository();
+            const passwordService = authFactory.getPasswordService();
+            const cookieService = authFactory.getCookieService();
+            if (!tokenService || !authRepository || !passwordService || !cookieService) {
+                throw new Error("Auth module must be initialized before attendance module");
+            }
+            const attendanceFactory = AttendanceFactory.getInstance();
+            const attendanceModule = attendanceFactory.createAttendanceModule(this.database, this.logger, tokenService, authRepository, passwordService, cookieService);
+            this.logger.info("Attendance module initialized successfully");
+            return attendanceModule.attendanceRouter;
+        }
+        catch (error) {
+            this.logger.error("Failed to setup attendance module", { error });
             throw error;
         }
     }

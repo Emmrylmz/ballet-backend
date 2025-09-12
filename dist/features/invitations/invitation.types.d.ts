@@ -4,6 +4,7 @@ export interface CreateInvitationRequest {
     type: InvitationType;
     establishmentId: string;
     sessionId?: string;
+    cohortId?: string;
     message?: string;
     expiryHours?: number;
     usageLimit?: number;
@@ -17,6 +18,7 @@ export interface Invitation {
     status: InvitationStatus;
     token: string;
     sessionId?: string;
+    cohortId?: string;
     message?: string;
     usageLimit: number;
     usageCount: number;
@@ -34,6 +36,8 @@ export interface InvitationResponse {
     createdByName: string;
     sessionId?: string;
     sessionName?: string;
+    cohortId?: string;
+    cohortName?: string;
     message?: string;
     usageLimit: number;
     usageCount: number;
@@ -49,6 +53,7 @@ export interface InvitationValidationResult {
     invitation?: Invitation;
     establishmentName?: string;
     sessionName?: string;
+    cohortName?: string;
     error?: string;
     warningMessage?: string;
 }

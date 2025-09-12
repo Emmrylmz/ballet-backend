@@ -12,6 +12,7 @@ import {
   EnrollStudentRequest,
   SessionType,
 } from "./classes.types.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 
 interface Establishment {
   id: string;
@@ -41,7 +42,7 @@ export class ClassesController {
   private getEstablishmentId(req: AuthenticatedRequest): string {
     const establishmentId = req.establishment?.id;
     if (!establishmentId) {
-      throw new Error("Establishment ID is required");
+      throw new Error(ERROR_MESSAGES.ESTABLISHMENT_ID_REQUIRED);
     }
     return establishmentId;
   }
@@ -98,7 +99,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -114,7 +115,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Establishment context required",
+          message: ERROR_MESSAGES.ESTABLISHMENT_CONTEXT_REQUIRED,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -141,7 +142,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -157,7 +158,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -187,7 +188,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -203,7 +204,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -243,7 +244,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -259,7 +260,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -295,7 +296,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -311,7 +312,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -352,7 +353,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -370,7 +371,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -382,7 +383,7 @@ export class ClassesController {
       if (!Array.isArray(sessions) || sessions.length === 0) {
         res.status(400).json({
           success: false,
-          message: "Sessions array is required and cannot be empty",
+          message: ERROR_MESSAGES.SESSIONS_ARRAY_REQUIRED,
           code: "INVALID_SESSIONS_ARRAY",
         });
         return;
@@ -415,7 +416,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -431,7 +432,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -444,7 +445,7 @@ export class ClassesController {
       if (!Array.isArray(userIds) || userIds.length === 0) {
         res.status(400).json({
           success: false,
-          message: "userIds array is required and cannot be empty",
+          message: ERROR_MESSAGES.USERIDS_ARRAY_REQUIRED,
           code: "INVALID_USER_IDS_ARRAY",
         });
         return;
@@ -482,7 +483,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -498,20 +499,20 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
       }
 
-      const sessionRequest: CreateClassSessionRequest & { cohortId?: string; overrideInstructorId?: string; sessionType?: SessionType } = req.body;
+      const sessionRequest: CreateClassSessionRequest & { cohortId: string; override_instructor_id?: string; sessionType?: SessionType } = req.body;
       const userId = req.user?.id || "";
 
       this.logger.info("Creating class session via API", {
         establishmentId,
         sessionDate: sessionRequest.sessionDate,
-        classTemplateId: sessionRequest.classTemplateId,
         cohortId: sessionRequest.cohortId,
+        overrideInstructorId: sessionRequest.override_instructor_id,
         userId,
         ip: this.getClientIp(req),
       });
@@ -536,7 +537,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -552,7 +553,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -579,7 +580,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -595,7 +596,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -627,7 +628,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -643,7 +644,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -665,7 +666,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -681,7 +682,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -721,7 +722,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -737,7 +738,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -773,7 +774,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -791,7 +792,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -831,7 +832,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -847,7 +848,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -886,7 +887,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -902,7 +903,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -929,7 +930,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -945,7 +946,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -974,7 +975,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -992,7 +993,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -1015,7 +1016,7 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }
@@ -1031,7 +1032,7 @@ export class ClassesController {
       if (!establishmentId) {
         res.status(400).json({
           success: false,
-          message: "Invalid establishment access",
+          message: ERROR_MESSAGES.INVALID_ESTABLISHMENT_ACCESS,
           code: "ESTABLISHMENT_ACCESS_ERROR",
         });
         return;
@@ -1068,7 +1069,45 @@ export class ClassesController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+        code: "INTERNAL_ERROR",
+      });
+    }
+  };
+
+  /**
+   * Get all dropdown data for classes
+   * GET /classes/dropdown-data
+   */
+  getDropdownData = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const establishmentId = req.establishment?.id;
+      if (!establishmentId) {
+        res.status(400).json({
+          success: false,
+          message: "Establishment ID is required. Please provide X-Establishment-ID header.",
+          code: "ESTABLISHMENT_ACCESS_ERROR",
+        });
+        return;
+      }
+
+      const result = await this.classesService.getDropdownData(establishmentId);
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      this.logger.error("Error in getDropdownData controller", {
+        error,
+        userId: req.user?.id,
+        establishmentId: req.establishment?.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         code: "INTERNAL_ERROR",
       });
     }

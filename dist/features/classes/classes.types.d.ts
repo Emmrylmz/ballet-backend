@@ -50,6 +50,7 @@ export interface ClassTemplateFilters {
     limit?: number;
     offset?: number;
 }
+export type SessionType = 'regular' | 'makeup' | 'trial' | 'private' | 'workshop';
 export interface ClassSession {
     id: string;
     establishmentId: string;
@@ -68,6 +69,11 @@ export interface ClassSession {
     recurrenceDaysOfWeek?: number[];
     recurrenceEndDate?: string;
     parentSessionId?: string;
+    cohortId?: string;
+    cohortName?: string;
+    overrideInstructorId?: string;
+    overrideInstructorName?: string;
+    sessionType: SessionType;
     enrollmentCount: number;
     createdAt: Date;
     updatedAt: Date;
@@ -119,6 +125,7 @@ export interface SessionEnrollment {
     studentId: string;
     studentName: string;
     studentEmail: string;
+    studentPhone: string;
     enrollmentDate: Date;
     isWaitlist: boolean;
     isNotifiedAbsence?: boolean;
@@ -146,6 +153,9 @@ export interface StudentEnrolledSession {
     startTime: string;
     endTime: string;
     templateTitle: string;
+    cohortName?: string;
+    cohortId?: string;
+    sessionType: SessionType;
     instructorName?: string;
     status: SessionStatus;
     isWaitlist: boolean;
@@ -192,6 +202,9 @@ export interface CalendarEvent {
     status: SessionStatus;
     classType: ClassType;
     skillLevel: SkillLevel;
+    cohortId?: string;
+    cohortName?: string;
+    sessionType: SessionType;
 }
 export interface ClassError {
     code: string;

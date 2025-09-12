@@ -21,7 +21,7 @@ export const AUTH_ERRORS = {
     ACCOUNT_LOCKED: "Hesabınız çok fazla başarısız giriş denemesi nedeniyle kilitlendi",
     EMAIL_NOT_VERIFIED: "E-posta adresiniz doğrulanmamış",
     AUTHENTICATION_REQUIRED: "Bu işlem için giriş yapmanız gerekli",
-    SESSION_EXPIRED: "Oturumunuzun süresi dolmuş, lütfen tekrar giriş yapın"
+    SESSION_EXPIRED: "Oturumunuzun süresi dolmuş, lütfen tekrar giriş yapın",
 };
 export const INVITATION_ERRORS = {
     ONLY_MANAGERS_CAN_INVITE_INSTRUCTORS: "Sadece yöneticiler eğitmen davet edebilir",
@@ -38,19 +38,20 @@ export const INVITATION_ERRORS = {
     USED_UP_INVITATION: "Davetiye kullanım limiti dolmuş",
     EMAIL_MISMATCH: "Bu eğitmen davetiyesi {email} adresine gönderilmiş. Lütfen doğru e-posta adresi ile giriş yapın",
     ALREADY_USED_INVITATION: "Bu davetiyeyi zaten kullandınız",
+    INVALID_EMAIL_FORMAT: "Email formatı yanlış",
     INSUFFICIENT_PERMISSIONS_REVOKE: "Bu davetiyeyi iptal etmek için yeterli yetkiniz yok",
     ONLY_MANAGERS_CAN_REVOKE_INSTRUCTOR_INVITATIONS: "Sadece yöneticiler eğitmen davetiyelerini iptal edebilir",
     TOO_MANY_INVITATIONS: "Çok fazla davetiye gönderdiniz, lütfen daha sonra tekrar deneyin",
     RATE_LIMIT_EXCEEDED: "Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin",
     MISSING_INVITATION_ID: "Davetiye ID'si gerekli",
     MISSING_TOKEN: "Davetiye token'ı gerekli",
-    INVITATION_CREATION_FAILED: "Davetiye oluşturulamadı"
+    INVITATION_CREATION_FAILED: "Davetiye oluşturulamadı",
 };
 export const DASHBOARD_ERRORS = {
     STATS_NOT_FOUND: "İstatistikler bulunamadı",
     DATA_FETCH_FAILED: "Veri alınamadı",
     INVALID_DATE_RANGE: "Geçersiz tarih aralığı",
-    NO_DATA_AVAILABLE: "Gösterilecek veri bulunmuyor"
+    NO_DATA_AVAILABLE: "Gösterilecek veri bulunmuyor",
 };
 export const VALIDATION_ERRORS = {
     REQUIRED_FIELD: "Bu alan zorunludur",
@@ -64,7 +65,7 @@ export const VALIDATION_ERRORS = {
     NUMBER_TOO_LARGE: "Sayı çok büyük (maksimum {max})",
     NUMBER_TOO_SMALL: "Sayı çok küçük (minimum {min})",
     INVALID_CHOICE: "Geçersiz seçim",
-    MISSING_PARAMETER: "{parameter} parametresi gerekli"
+    MISSING_PARAMETER: "{parameter} parametresi gerekli",
 };
 export const DATABASE_ERRORS = {
     CONNECTION_FAILED: "Veritabanı bağlantısı başarısız",
@@ -74,7 +75,7 @@ export const DATABASE_ERRORS = {
     DUPLICATE_KEY: "Bu kayıt zaten mevcut",
     FOREIGN_KEY_VIOLATION: "İlişkili kayıt bulunamadı",
     NOT_NULL_VIOLATION: "Zorunlu alan boş bırakılamaz",
-    DATA_INTEGRITY_ERROR: "Veri bütünlüğü hatası"
+    DATA_INTEGRITY_ERROR: "Veri bütünlüğü hatası",
 };
 export const GENERAL_ERRORS = {
     INTERNAL_SERVER_ERROR: "Sunucu hatası oluştu",
@@ -86,7 +87,7 @@ export const GENERAL_ERRORS = {
     PAYLOAD_TOO_LARGE: "Gönderilen veri çok büyük",
     TIMEOUT: "İşlem zaman aşımına uğradı",
     NETWORK_ERROR: "Ağ bağlantısı hatası",
-    UNKNOWN_ERROR: "Bilinmeyen hata oluştu"
+    UNKNOWN_ERROR: "Bilinmeyen hata oluştu",
 };
 export const SUCCESS_MESSAGES = {
     LOGIN_SUCCESS: "Başarıyla giriş yaptınız",
@@ -102,7 +103,7 @@ export const SUCCESS_MESSAGES = {
     OPERATION_SUCCESS: "İşlem başarıyla tamamlandı",
     DATA_SAVED: "Veriler başarıyla kaydedildi",
     DATA_UPDATED: "Veriler başarıyla güncellendi",
-    DATA_DELETED: "Veriler başarıyla silindi"
+    DATA_DELETED: "Veriler başarıyla silindi",
 };
 export const HTTP_MESSAGES = {
     400: "Geçersiz istek",
@@ -118,7 +119,7 @@ export const HTTP_MESSAGES = {
     501: "Henüz uygulanmadı",
     502: "Geçersiz ağ geçidi",
     503: "Servis kullanılamıyor",
-    504: "Ağ geçidi zaman aşımı"
+    504: "Ağ geçidi zaman aşımı",
 };
 export function formatMessage(message, replacements) {
     return message.replace(/\{(\w+)\}/g, (match, key) => {

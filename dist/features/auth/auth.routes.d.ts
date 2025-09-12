@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { AuthController } from './auth.controller.js';
-import { AuthMiddleware } from './middleware/AuthMiddleware.js';
+import { Router } from "express";
+import { AuthController } from "./auth.controller.js";
+import { AuthMiddleware } from "./middleware/AuthMiddleware.js";
 export declare class AuthRoutes {
     private authController;
     private authMiddleware;
@@ -14,7 +14,6 @@ export declare class AuthRoutes {
     private getForgotPasswordSchema;
     private getResetPasswordSchema;
     private getChangePasswordSchema;
-    private getRefreshTokenSchema;
     private getLogoutSchema;
     private getPasswordStrengthSchema;
     private getSessionIdSchema;

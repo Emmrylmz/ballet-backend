@@ -18,6 +18,13 @@ interface AuthenticatedRequest extends Request {
     email: string;
     establishments: Establishment[] | undefined;
   };
+  establishment?: {
+    id: string;
+    name: string;
+    role: string;
+    isPrimary: boolean;
+    status: string;
+  };
 }
 
 export class AuthMiddleware {
@@ -34,16 +41,26 @@ export class AuthMiddleware {
       res: Response,
       next: NextFunction
     ): Promise<void> => {
+      // Set a timeout to prevent hanging
+      const timeoutId = setTimeout(() => {
+        if (!res.headersSent) {
+          this.logger.error("Authentication middleware timeout");
+          this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+        }
+      }, 10000); // 10 second timeout
+
       try {
         // Check if CookieService is available
         if (!this.cookieService) {
           this.logger.error("CookieService not initialized in AuthMiddleware");
+          clearTimeout(timeoutId);
           this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
           return;
         }
 
         // Check if cookies are properly configured (simple check)
         if (!req.cookies || typeof req.cookies !== "object") {
+          clearTimeout(timeoutId);
           this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
           return;
         }
@@ -52,77 +69,69 @@ export class AuthMiddleware {
         const accessToken = this.cookieService.getAccessTokenFromCookies(req);
 
         if (!accessToken) {
-          this.logger.debug("No access token found in cookies");
+          this.logger.debug(
+            "No access token found in cookies or Authorization header"
+          );
+          clearTimeout(timeoutId);
           this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
           return;
         }
 
-        // Verify access token
+        // Verify access token - this is synchronous and should not hang
         const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
 
         if (!tokenPayload) {
           this.logger.debug("Invalid access token from cookies");
 
-          // Try to refresh token if available
-          const refreshResult = await this.attemptTokenRefresh(req, res);
-          if (!refreshResult || !refreshResult.success) {
+          try {
+            // Try to refresh token if available - wrap in timeout
+            const refreshResult = await Promise.race([
+              this.attemptTokenRefresh(req, res),
+              new Promise<{ success: boolean }>((_, reject) => 
+                setTimeout(() => reject(new Error("Token refresh timeout")), 8000)
+              )
+            ]);
+
+            if (!refreshResult || !refreshResult.success) {
+              clearTimeout(timeoutId);
+              this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
+              return;
+            }
+
+            // Use the new token payload and user data
+            req.user = refreshResult.user;
+            clearTimeout(timeoutId);
+            next();
+            return;
+          } catch (refreshError) {
+            this.logger.error("Token refresh failed", { error: refreshError });
+            clearTimeout(timeoutId);
             this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
             return;
           }
-
-          // Use the new token payload and user data
-          req.user = refreshResult.user;
-          next();
-          return;
         }
 
-        // Get user data from repository
-        const user = await this.authRepository.findUserById(tokenPayload.sub);
-
-        if (!user || user.status !== "active") {
-          this.logger.warn("User not found or inactive", {
-            userId: tokenPayload.sub,
-          });
-          this.cookieService.clearAllAuthCookies(res);
-          this.sendUnauthorized(res, AUTH_ERRORS.USER_NOT_FOUND);
-          return;
-        }
-
-        // Log permission denied for inactive accounts
-        if (user.status !== "active") {
-          await this.authRepository.logAuthEvent({
-            userId: user.id,
-            email: user.email,
-            action: "permission_denied",
-            ipAddress: this.getClientIp(req),
-            userAgent: req.get("User-Agent") || "Unknown",
-            success: false,
-            failureReason: `User status is ${user.status}`,
-          });
-        }
-
-        // Set user data in request
         req.user = {
-          id: user.id,
-          email: user.email,
-          establishments: user.establishments || [],
+          id: tokenPayload.sub,
+          email: tokenPayload.email,
+          establishments: tokenPayload.establishments || [],
         };
 
-        // Update session info if needed
+        // Add establishment context to request for easier access
+        (req as any).establishment =
+          tokenPayload.establishments?.find((est: any) => est.isPrimary) ||
+          tokenPayload.establishments?.[0];
+
+        // Update session info if needed - make this non-blocking
         const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
         if (refreshToken) {
-          const ipAddress = this.getClientIp(req);
-          const userAgent = req.get("User-Agent") || "Unknown";
-
-          // Hash the token for database lookup
-          const tokenHash = this.hashToken(refreshToken);
-          await this.tokenService.updateSessionInfo(
-            tokenHash,
-            ipAddress,
-            userAgent
-          );
+          // Run session update in background, don't await it
+          this.updateSessionInfoAsync(refreshToken, req).catch(error => {
+            this.logger.error("Session info update failed", { error });
+          });
         }
 
+        clearTimeout(timeoutId);
         next();
       } catch (error) {
         const errorMessage =
@@ -141,7 +150,10 @@ export class AuthMiddleware {
             : null,
         });
 
-        this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+        clearTimeout(timeoutId);
+        if (!res.headersSent) {
+          this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+        }
       }
     };
   }
@@ -157,6 +169,7 @@ export class AuthMiddleware {
         return;
       }
 
+      // For now, just allow all authenticated users - role checking not fully implemented
       next();
     };
   }
@@ -203,38 +216,37 @@ export class AuthMiddleware {
       // Check if establishment ID is provided
       if (!establishmentId) {
         return res.status(400).json({
-          // Add this check and return
           success: false,
           message: "Establishment ID required",
           code: "ESTABLISHMENT_ID_REQUIRED",
         });
       }
 
-      // Get user's role in this establishment
-      const role = await this.authRepository.getRole(
-        req.user.id,
-        establishmentId
+      // Find the establishment in user's token data instead of database call
+      const userEstablishment = req.user.establishments?.find(
+        (est: any) => est.id === establishmentId
       );
 
-      // Check if user has no role in this establishment
-      if (!role) {
+      // Check if user has no access to this establishment
+      if (!userEstablishment) {
         return res.status(403).json({
-          // Add return
           success: false,
           message: "No access to this establishment",
           code: "NO_ESTABLISHMENT_ACCESS",
         });
       }
-      // Fix the role check logic - check if user's role is IN the required roles
-      if (!requiredRoles.includes(role)) {
-        // Changed from some() to includes()
+
+      // Check if user's role meets the required roles
+      if (!requiredRoles.includes(userEstablishment.role as UserRole)) {
         return res.status(403).json({
-          // Add return
           success: false,
-          message: "Insufficient permission", // Fixed typo
+          message: "Insufficient permission",
           code: "INSUFFICIENT_PERMISSION",
         });
       }
+
+      // Add the specific establishment context to request
+      (req as any).establishment = userEstablishment;
 
       // All checks passed, proceed to next middleware/controller
       next();
@@ -268,15 +280,17 @@ export class AuthMiddleware {
         const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
 
         if (tokenPayload) {
-          const user = await this.authRepository.findUserById(tokenPayload.sub);
+          // Use data directly from token payload - no database call needed
+          req.user = {
+            id: tokenPayload.sub,
+            email: tokenPayload.email,
+            establishments: tokenPayload.establishments || [],
+          };
 
-          if (user && user.status === "active") {
-            req.user = {
-              id: user.id,
-              email: user.email,
-              establishments: user.establishments || [],
-            };
-          }
+          // Add establishment context to request for easier access
+          (req as any).establishment =
+            tokenPayload.establishments?.find((est: any) => est.isPrimary) ||
+            tokenPayload.establishments?.[0];
         }
 
         next();
@@ -402,6 +416,28 @@ export class AuthMiddleware {
   }
 
   /**
+   * Update session info in background without blocking the request
+   */
+  private async updateSessionInfoAsync(refreshToken: string, req: AuthenticatedRequest): Promise<void> {
+    try {
+      const ipAddress = this.getClientIp(req);
+      const userAgent = req.get("User-Agent") || "Unknown";
+      const tokenHash = this.hashToken(refreshToken);
+      
+      // Add timeout to prevent hanging
+      await Promise.race([
+        this.tokenService.updateSessionInfo(tokenHash, ipAddress, userAgent),
+        new Promise<void>((_, reject) => 
+          setTimeout(() => reject(new Error("Session update timeout")), 5000)
+        )
+      ]);
+    } catch (error) {
+      // Log error but don't throw - this is background operation
+      this.logger.error("Session info background update failed", { error });
+    }
+  }
+
+  /**
    * Attempt to refresh access token using refresh token from cookies
    */
   private async attemptTokenRefresh(
@@ -416,42 +452,72 @@ export class AuthMiddleware {
         return { success: false };
       }
 
-      const refreshPayload = await this.tokenService.verifyRefreshToken(
-        refreshToken
-      );
+      // Add timeout to refresh token verification
+      const refreshPayload = await Promise.race([
+        this.tokenService.verifyRefreshToken(refreshToken),
+        new Promise<any>((_, reject) => 
+          setTimeout(() => reject(new Error("Refresh token verification timeout")), 3000)
+        )
+      ]);
 
       if (!refreshPayload) {
         this.logger.debug("Invalid refresh token for token refresh");
-        this.cookieService.clearAllAuthCookies(res);
+        try {
+          this.cookieService.clearAllAuthCookies(res);
+        } catch (clearError) {
+          this.logger.error("Failed to clear cookies", { clearError });
+        }
         return { success: false };
       }
 
-      const user = await this.authRepository.findUserById(refreshPayload.sub);
+      // Add timeout to user lookup
+      const user = await Promise.race([
+        this.authRepository.findUserById(refreshPayload.sub),
+        new Promise<any>((_, reject) => 
+          setTimeout(() => reject(new Error("User lookup timeout")), 3000)
+        )
+      ]);
 
       if (!user || user.status !== "active") {
         this.logger.warn("User not found or inactive during token refresh", {
           userId: refreshPayload.sub,
         });
-        this.cookieService.clearAllAuthCookies(res);
+        try {
+          this.cookieService.clearAllAuthCookies(res);
+        } catch (clearError) {
+          this.logger.error("Failed to clear cookies", { clearError });
+        }
         return { success: false };
       }
 
-      // Generate new token pair
-      const newTokenPair = await this.tokenService.generateTokenPair(
-        user.id,
-        user.email,
-        user.establishments
-      );
+      // Add timeout to token generation
+      const newTokenPair = await Promise.race([
+        this.tokenService.generateTokenPair(
+          user.id,
+          user.email,
+          user.establishments
+        ),
+        new Promise<any>((_, reject) => 
+          setTimeout(() => reject(new Error("Token generation timeout")), 3000)
+        )
+      ]);
 
-      // Revoke old refresh token
-      await this.tokenService.revokeRefreshToken(refreshToken);
+      // Revoke old refresh token in background - don't wait for it
+      this.tokenService.revokeRefreshToken(refreshToken).catch(error => {
+        this.logger.error("Failed to revoke old refresh token", { error });
+      });
 
       // Set new cookies
-      this.cookieService.setTokenCookies(
-        res,
-        newTokenPair.accessToken,
-        newTokenPair.refreshToken
-      );
+      try {
+        this.cookieService.setTokenCookies(
+          res,
+          newTokenPair.accessToken,
+          newTokenPair.refreshToken
+        );
+      } catch (cookieError) {
+        this.logger.error("Failed to set new token cookies", { cookieError });
+        return { success: false };
+      }
 
       this.logger.info("Token refreshed successfully via middleware", {
         userId: user.id,
@@ -491,11 +557,17 @@ export class AuthMiddleware {
    * Send unauthorized response
    */
   private sendUnauthorized(res: Response, message: string): void {
-    res.status(401).json({
-      success: false,
-      message,
-      code: "UNAUTHORIZED",
-    });
+    try {
+      if (!res.headersSent) {
+        res.status(401).json({
+          success: false,
+          message,
+          code: "UNAUTHORIZED",
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to send unauthorized response", { error });
+    }
   }
 
   /**

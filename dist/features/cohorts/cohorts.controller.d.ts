@@ -18,6 +18,7 @@ export declare class CohortsController {
     constructor(cohortsService: CohortsService, logger: LoggerService, db?: any);
     private getEstablishmentId;
     private getClientIp;
+    private getRequiredParam;
     getCohorts: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getCohort: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     createCohort: (req: AuthenticatedRequest, res: Response) => Promise<void>;

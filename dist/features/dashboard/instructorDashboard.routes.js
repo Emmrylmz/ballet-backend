@@ -15,13 +15,13 @@ const activitiesQuerySchema = Joi.object({
     dateFrom: Joi.date().iso().optional(),
     dateTo: Joi.date().iso().optional(),
 });
-const createInstructorDashboardRoutes = (db, logger, tokenService, authRepository) => {
+const createInstructorDashboardRoutes = (db, logger, tokenService, authRepository, cookieService) => {
     const router = Router();
     const repository = new InstructorDashboardRepository(db);
     const service = new InstructorDashboardService(repository, logger);
     const controller = new InstructorDashboardController(service, logger);
-    const authMiddleware = new AuthMiddleware(tokenService, authRepository, logger);
-    const establishmentMiddleware = new EstablishmentMiddleware(logger);
+    const authMiddleware = new AuthMiddleware(tokenService, cookieService, authRepository, logger);
+    const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
     router.use(authMiddleware.authenticate());
     router.use(establishmentMiddleware.extractEstablishment());
     router.use(establishmentMiddleware.validateEstablishmentAccess());

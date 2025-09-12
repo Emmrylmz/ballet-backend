@@ -3,6 +3,7 @@ import { Cohort, CohortMembership, CohortStats, CreateCohortRequest, UpdateCohor
 export declare class CohortsRepository {
     private db;
     constructor(db: DatabaseService);
+    logActivity(establishmentId: string, activityType: 'class' | 'enrollment', title: string, description: string, userId?: string, studentId?: string, sessionId?: string): Promise<void>;
     createCohort(establishmentId: string, cohort: CreateCohortRequest): Promise<Cohort>;
     getCohort(establishmentId: string, cohortId: string): Promise<Cohort | null>;
     getCohorts(establishmentId: string, filters?: CohortFilters): Promise<{

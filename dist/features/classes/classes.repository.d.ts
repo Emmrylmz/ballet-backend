@@ -13,9 +13,15 @@ export declare class ClassesRepository {
     }>;
     updateClassTemplate(establishmentId: string, templateId: string, updates: UpdateClassTemplateRequest): Promise<ClassTemplate | null>;
     deleteClassTemplate(establishmentId: string, templateId: string): Promise<boolean>;
-    createClassSession(establishmentId: string, session: CreateClassSessionRequest): Promise<ClassSession>;
+    createClassSession(establishmentId: string, session: CreateClassSessionRequest & {
+        cohortId?: string;
+        overrideInstructorId?: string;
+        sessionType?: string;
+    }): Promise<ClassSession>;
     getClassSession(establishmentId: string, sessionId: string): Promise<ClassSession | null>;
-    getClassSessions(establishmentId: string, filters?: ClassSessionFilters): Promise<{
+    getClassSessions(establishmentId: string, filters?: ClassSessionFilters & {
+        cohortId?: string;
+    }): Promise<{
         sessions: ClassSession[];
         total: number;
     }>;
@@ -24,6 +30,12 @@ export declare class ClassesRepository {
     enrollStudent(establishmentId: string, sessionId: string, studentId: string, isWaitlist?: boolean): Promise<SessionEnrollment>;
     removeStudentFromSession(establishmentId: string, sessionId: string, studentId: string): Promise<boolean>;
     getSessionEnrollments(establishmentId: string, sessionId: string): Promise<SessionEnrollment[]>;
+    createBulkClassSessions(establishmentId: string, sessions: (CreateClassSessionRequest & {
+        cohortId?: string;
+        overrideInstructorId?: string;
+        sessionType?: string;
+    })[]): Promise<ClassSession[]>;
+    bulkEnrollUsersInSession(establishmentId: string, sessionId: string, userIds: string[], isWaitlist?: boolean): Promise<SessionEnrollment[]>;
     getStudentEnrolledSessions(establishmentId: string, studentId: string, includeCompleted?: boolean): Promise<StudentEnrolledSession[]>;
     isStudentEnrolled(establishmentId: string, sessionId: string, studentId: string): Promise<boolean>;
     getActiveStudentPackage(establishmentId: string, studentId: string): Promise<StudentPackage | null>;
@@ -34,4 +46,37 @@ export declare class ClassesRepository {
     private mapClassTemplateRow;
     private mapClassSessionRow;
     private mapStudentPackageRow;
+    getDropdownData(establishmentId: string): Promise<{
+        instructors: Array<{
+            id: string;
+            name: string;
+            email: string;
+            phone?: string;
+            role: string;
+            isActive: boolean;
+        }>;
+        classTypes: Array<{
+            id: number;
+            nameTr: string;
+            nameEn: string;
+            isActive: boolean;
+        }>;
+        classLevels: Array<{
+            id: number;
+            nameTr: string;
+            nameEn: string;
+            isActive: boolean;
+        }>;
+    }>;
+    getCohort(establishmentId: string, cohortId: string): Promise<{
+        id: string;
+        name: string;
+        templateId: string;
+        instructorId: string;
+        maxStudents: number;
+        scheduleStartTime: string;
+        termStartDate: string;
+        termEndDate: string;
+    } | null>;
+    getCohortMembers(establishmentId: string, cohortId: string): Promise<string[]>;
 }

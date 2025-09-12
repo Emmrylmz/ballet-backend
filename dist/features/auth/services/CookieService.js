@@ -74,6 +74,9 @@ export class CookieService {
         }
         return token;
     }
+    getAccessToken(req) {
+        return this.getAccessTokenFromCookies(req);
+    }
     getRefreshTokenFromCookies(req) {
         return req.cookies?.refresh_token;
     }

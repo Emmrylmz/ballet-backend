@@ -30,6 +30,8 @@ export declare class ClassesController {
     updateTemplate: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     deleteTemplate: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     generateSessions: (req: AuthenticatedRequest, res: Response) => Promise<void>;
+    createBulkSessions: (req: AuthenticatedRequest, res: Response) => Promise<void>;
+    bulkEnrollUsers: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     createSession: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getSession: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getSessions: (req: AuthenticatedRequest, res: Response) => Promise<void>;
@@ -42,5 +44,6 @@ export declare class ClassesController {
     getStudentEnrolledSessions: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getStats: (req: AuthenticatedRequest, res: Response) => Promise<void>;
     getCalendarEvents: (req: AuthenticatedRequest, res: Response) => Promise<void>;
+    getDropdownData: (req: AuthenticatedRequest, res: Response) => Promise<void>;
 }
 export {};

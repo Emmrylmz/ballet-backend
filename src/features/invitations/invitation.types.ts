@@ -5,6 +5,7 @@ export interface CreateInvitationRequest {
   type: InvitationType;
   establishmentId: string;
   sessionId?: string; // For student invitations to specific sessions
+  cohortId?: string; // For student invitations to specific cohorts
   message?: string;
   expiryHours?: number; // Max 24 hours, default 1 hour
   usageLimit?: number; // Max number of users who can use this link, default 1
@@ -19,6 +20,7 @@ export interface Invitation {
   status: InvitationStatus;
   token: string;
   sessionId?: string;
+  cohortId?: string;
   message?: string;
   usageLimit: number;
   usageCount: number;
@@ -38,6 +40,8 @@ export interface InvitationResponse {
   createdByName: string;
   sessionId?: string;
   sessionName?: string;
+  cohortId?: string;
+  cohortName?: string;
   message?: string;
   usageLimit: number;
   usageCount: number;
@@ -55,6 +59,7 @@ export interface InvitationValidationResult {
   invitation?: Invitation;
   establishmentName?: string;
   sessionName?: string;
+  cohortName?: string;
   error?: string;
   warningMessage?: string; // For users already in establishment
 }

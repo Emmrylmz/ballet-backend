@@ -1,4 +1,5 @@
 import { COHORT_ERRORS, } from "./cohorts.types.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 export class CohortsService {
     cohortsRepository;
     db;
@@ -14,10 +15,10 @@ export class CohortsService {
             if (!termValidation.isValid) {
                 return {
                     success: false,
-                    message: termValidation.error,
+                    message: ERROR_MESSAGES.INVALID_TERM_DATES,
                     error: {
                         code: COHORT_ERRORS.INVALID_TERM_DATES,
-                        message: termValidation.error,
+                        message: ERROR_MESSAGES.INVALID_TERM_DATES,
                     },
                 };
             }
@@ -25,35 +26,36 @@ export class CohortsService {
             if (!scheduleValidation.isValid) {
                 return {
                     success: false,
-                    message: scheduleValidation.error,
+                    message: ERROR_MESSAGES.INVALID_SCHEDULE,
                     error: {
                         code: COHORT_ERRORS.INVALID_SCHEDULE,
-                        message: scheduleValidation.error,
+                        message: ERROR_MESSAGES.INVALID_SCHEDULE,
                     },
                 };
             }
             if (cohort.ageMin && cohort.ageMax && cohort.ageMin > cohort.ageMax) {
                 return {
                     success: false,
-                    message: "Minimum age cannot be greater than maximum age",
+                    message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
                     error: {
                         code: COHORT_ERRORS.INVALID_AGE_RANGE,
-                        message: "Minimum age cannot be greater than maximum age",
+                        message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
                     },
                 };
             }
-            const conflictCheck = await this.checkInstructorAvailability(establishmentId, cohort.instructorId, cohort.scheduleDays, cohort.scheduleStartTime, cohort.scheduleDurationMinutes, cohort.termStartDate, cohort.termEndDate);
+            const conflictCheck = await this.checkInstructorAvailability(establishmentId, cohort.instructorId, cohort.scheduleDays, cohort.scheduleStartTime, cohort.templateId, cohort.termStartDate, cohort.termEndDate);
             if (!conflictCheck.isAvailable) {
                 return {
                     success: false,
-                    message: conflictCheck.reason,
+                    message: ERROR_MESSAGES.INSTRUCTOR_NOT_AVAILABLE,
                     error: {
                         code: COHORT_ERRORS.INSTRUCTOR_NOT_AVAILABLE,
-                        message: conflictCheck.reason,
+                        message: ERROR_MESSAGES.INSTRUCTOR_NOT_AVAILABLE,
                     },
                 };
             }
             const createdCohort = await this.cohortsRepository.createCohort(establishmentId, cohort);
+            await this.cohortsRepository.logActivity(establishmentId, "class", "Cohort created", `Created cohort: ${createdCohort.name}`, userId);
             this.logger.info("Cohort created successfully", {
                 cohortId: createdCohort.id,
                 establishmentId,
@@ -62,7 +64,7 @@ export class CohortsService {
             return {
                 success: true,
                 data: createdCohort,
-                message: "Cohort created successfully",
+                message: ERROR_MESSAGES.COHORT_CREATED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -73,10 +75,125 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to create cohort",
+                message: ERROR_MESSAGES.COHORT_CREATION_FAILED,
                 error: {
                     code: COHORT_ERRORS.COHORT_CREATION_FAILED,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
+                },
+            };
+        }
+    }
+    async updateCohort(establishmentId, cohortId, updates, userId) {
+        try {
+            const currentCohort = await this.cohortsRepository.getCohort(establishmentId, cohortId);
+            if (!currentCohort) {
+                return {
+                    success: false,
+                    message: ERROR_MESSAGES.COHORT_NOT_FOUND,
+                    error: {
+                        code: COHORT_ERRORS.COHORT_NOT_FOUND,
+                        message: ERROR_MESSAGES.COHORT_NOT_FOUND,
+                    },
+                };
+            }
+            const scheduleFieldsUpdated = updates.instructorId !== undefined ||
+                updates.scheduleDays !== undefined ||
+                updates.scheduleStartTime !== undefined ||
+                updates.termStartDate !== undefined ||
+                updates.termEndDate !== undefined;
+            if (scheduleFieldsUpdated) {
+                const instructorId = updates.instructorId ?? currentCohort.instructorId;
+                const scheduleDays = updates.scheduleDays ?? currentCohort.scheduleDays;
+                const scheduleStartTime = updates.scheduleStartTime ?? currentCohort.scheduleStartTime;
+                const termStartDate = updates.termStartDate ?? currentCohort.termStartDate;
+                const termEndDate = updates.termEndDate ?? currentCohort.termEndDate;
+                const templateId = updates.templateId ?? currentCohort.templateId;
+                if (instructorId && scheduleDays && scheduleStartTime && termStartDate && termEndDate) {
+                    const conflictCheck = await this.checkInstructorAvailabilityForUpdate(establishmentId, cohortId, instructorId, scheduleDays, scheduleStartTime, templateId, termStartDate, termEndDate);
+                    if (!conflictCheck.isAvailable) {
+                        return {
+                            success: false,
+                            message: conflictCheck.reason,
+                            error: {
+                                code: COHORT_ERRORS.INSTRUCTOR_NOT_AVAILABLE,
+                                message: conflictCheck.reason,
+                            },
+                        };
+                    }
+                }
+            }
+            if (updates.ageMin !== undefined && updates.ageMax !== undefined) {
+                if (updates.ageMin > updates.ageMax) {
+                    return {
+                        success: false,
+                        message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        error: {
+                            code: COHORT_ERRORS.INVALID_AGE_RANGE,
+                            message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        },
+                    };
+                }
+            }
+            else if (updates.ageMin !== undefined && currentCohort.ageMax) {
+                if (updates.ageMin > currentCohort.ageMax) {
+                    return {
+                        success: false,
+                        message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        error: {
+                            code: COHORT_ERRORS.INVALID_AGE_RANGE,
+                            message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        },
+                    };
+                }
+            }
+            else if (updates.ageMax !== undefined && currentCohort.ageMin) {
+                if (currentCohort.ageMin > updates.ageMax) {
+                    return {
+                        success: false,
+                        message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        error: {
+                            code: COHORT_ERRORS.INVALID_AGE_RANGE,
+                            message: ERROR_MESSAGES.MIN_AGE_GREATER_THAN_MAX,
+                        },
+                    };
+                }
+            }
+            const updatedCohort = await this.cohortsRepository.updateCohort(establishmentId, cohortId, updates);
+            if (!updatedCohort) {
+                return {
+                    success: false,
+                    message: ERROR_MESSAGES.COHORT_UPDATE_FAILED,
+                    error: {
+                        code: COHORT_ERRORS.COHORT_UPDATE_FAILED,
+                        message: ERROR_MESSAGES.COHORT_UPDATE_FAILED,
+                    },
+                };
+            }
+            this.logger.info("Cohort updated successfully", {
+                cohortId,
+                establishmentId,
+                userId,
+                updatedFields: Object.keys(updates),
+            });
+            return {
+                success: true,
+                data: updatedCohort,
+                message: ERROR_MESSAGES.COHORT_UPDATED_SUCCESSFULLY,
+            };
+        }
+        catch (error) {
+            this.logger.error("Failed to update cohort", {
+                error,
+                cohortId,
+                establishmentId,
+                userId,
+            });
+            return {
+                success: false,
+                message: ERROR_MESSAGES.COHORT_UPDATE_FAILED,
+                error: {
+                    code: COHORT_ERRORS.COHORT_UPDATE_FAILED,
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -87,10 +204,10 @@ export class CohortsService {
             if (!cohort) {
                 return {
                     success: false,
-                    message: "Cohort not found",
+                    message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     error: {
                         code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                        message: "Cohort not found",
+                        message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     },
                 };
             }
@@ -100,10 +217,10 @@ export class CohortsService {
             if (sessionDates.length === 0) {
                 return {
                     success: false,
-                    message: "No valid session dates found in the specified range",
+                    message: ERROR_MESSAGES.NO_VALID_SESSION_DATES,
                     error: {
                         code: COHORT_ERRORS.INVALID_SCHEDULE,
-                        message: "No valid session dates found",
+                        message: ERROR_MESSAGES.NO_VALID_SESSION_DATES,
                     },
                 };
             }
@@ -166,6 +283,7 @@ export class CohortsService {
                     }
                 }
             });
+            await this.cohortsRepository.logActivity(establishmentId, "class", "Sessions generated", `Generated ${sessionsCreated} sessions for cohort: ${cohort.name}`, userId);
             this.logger.info("Sessions generated for cohort", {
                 cohortId,
                 sessionsCreated,
@@ -183,7 +301,7 @@ export class CohortsService {
                     endDate: generateToDate,
                     skippedDates,
                 },
-                message: `Generated ${sessionsCreated} sessions with ${enrollmentsCreated} enrollments`,
+                message: `${sessionsCreated} ${ERROR_MESSAGES.SESSIONS_GENERATED_SUCCESSFULLY}`,
             };
         }
         catch (error) {
@@ -195,10 +313,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to generate sessions",
+                message: ERROR_MESSAGES.FAILED_TO_GENERATE_SESSIONS,
                 error: {
                     code: COHORT_ERRORS.SESSIONS_ALREADY_GENERATED,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -209,10 +327,10 @@ export class CohortsService {
             if (!cohort) {
                 return {
                     success: false,
-                    message: "Cohort not found",
+                    message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     error: {
                         code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                        message: "Cohort not found",
+                        message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     },
                 };
             }
@@ -242,10 +360,13 @@ export class CohortsService {
                     failed.push(studentId);
                 }
             }
+            if (enrolled > 0) {
+                await this.cohortsRepository.logActivity(establishmentId, "enrollment", "Bulk enrollment", `Bulk enrolled ${enrolled} students in cohort: ${cohort.name}`, userId);
+            }
             return {
                 success: true,
                 data: { enrolled, failed },
-                message: `Enrolled ${enrolled} students successfully`,
+                message: `${enrolled} ${ERROR_MESSAGES.ENROLLED_STUDENTS_SUCCESSFULLY}`,
             };
         }
         catch (error) {
@@ -257,10 +378,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to enroll students",
+                message: ERROR_MESSAGES.FAILED_TO_ENROLL_STUDENTS,
                 error: {
                     code: COHORT_ERRORS.MEMBERSHIP_CREATION_FAILED,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -274,10 +395,10 @@ export class CohortsService {
             if (!membership) {
                 return {
                     success: false,
-                    message: "Student not found in cohort",
+                    message: ERROR_MESSAGES.STUDENT_NOT_FOUND_IN_COHORT,
                     error: {
                         code: COHORT_ERRORS.STUDENT_NOT_ENROLLED,
-                        message: "Student not found in cohort",
+                        message: ERROR_MESSAGES.STUDENT_NOT_FOUND_IN_COHORT,
                     },
                 };
             }
@@ -285,6 +406,7 @@ export class CohortsService {
                 const effectiveDate = options.effectiveDate || new Date().toISOString().split("T")[0];
                 await this.removeFromFutureSessions(establishmentId, cohortId, studentId, effectiveDate);
             }
+            await this.cohortsRepository.logActivity(establishmentId, "enrollment", "Student left cohort", `Student removed from cohort`, userId, studentId);
             this.logger.info("Student removed from cohort", {
                 studentId,
                 cohortId,
@@ -294,7 +416,7 @@ export class CohortsService {
             return {
                 success: true,
                 data: true,
-                message: "Student removed from cohort successfully",
+                message: ERROR_MESSAGES.STUDENT_REMOVED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -307,10 +429,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to remove student from cohort",
+                message: ERROR_MESSAGES.FAILED_TO_REMOVE_STUDENT,
                 error: {
                     code: COHORT_ERRORS.MEMBERSHIP_CREATION_FAILED,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -321,10 +443,10 @@ export class CohortsService {
             if (!originalCohort) {
                 return {
                     success: false,
-                    message: "Original cohort not found",
+                    message: ERROR_MESSAGES.ORIGINAL_COHORT_NOT_FOUND,
                     error: {
                         code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                        message: "Original cohort not found",
+                        message: ERROR_MESSAGES.ORIGINAL_COHORT_NOT_FOUND,
                     },
                 };
             }
@@ -355,10 +477,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to clone cohort",
+                message: ERROR_MESSAGES.FAILED_TO_CLONE_COHORT,
                 error: {
                     code: COHORT_ERRORS.COHORT_CREATION_FAILED,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -369,80 +491,160 @@ export class CohortsService {
         if (start >= end) {
             return {
                 isValid: false,
-                error: "Term end date must be after start date",
+                error: ERROR_MESSAGES.TERM_END_AFTER_START,
             };
         }
         const diffMonths = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
         if (diffMonths > 6) {
-            return { isValid: false, error: "Term length cannot exceed 6 months" };
+            return { isValid: false, error: ERROR_MESSAGES.TERM_LENGTH_EXCEEDS_LIMIT };
         }
         return { isValid: true };
     }
     validateSchedule(days, startTime, durationMinutes) {
         if (!days || days.length === 0) {
-            return { isValid: false, error: "At least one schedule day is required" };
+            return { isValid: false, error: ERROR_MESSAGES.AT_LEAST_ONE_SCHEDULE_DAY };
         }
         if (days.some((day) => day < 0 || day > 6)) {
             return {
                 isValid: false,
-                error: "Schedule days must be between 0 (Sunday) and 6 (Saturday)",
+                error: ERROR_MESSAGES.INVALID_SCHEDULE_DAYS,
             };
         }
         const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!timeRegex.test(startTime)) {
-            return { isValid: false, error: "Invalid start time format. Use HH:MM" };
+            return { isValid: false, error: ERROR_MESSAGES.INVALID_START_TIME_FORMAT };
         }
         const [hours, minutes] = startTime.split(":").map(Number);
         const endTime = this.calculateEndTime(startTime, durationMinutes);
         const [endHours] = endTime.split(":").map(Number);
-        if (hours < 6 || endHours > 22) {
-            return {
-                isValid: false,
-                error: "Class time must be between 6:00 AM and 10:00 PM",
-            };
-        }
-        if (durationMinutes < 15 || durationMinutes > 180) {
-            return {
-                isValid: false,
-                error: "Class duration must be between 15 and 180 minutes",
-            };
-        }
         return { isValid: true };
     }
-    async checkInstructorAvailability(establishmentId, instructorId, scheduleDays, startTime, durationMinutes, termStart, termEnd) {
+    async checkInstructorAvailabilityForUpdate(establishmentId, excludeCohortId, instructorId, scheduleDays, scheduleStartTime, templateId, termStartDate, termEndDate) {
         try {
-            const endTime = this.calculateEndTime(startTime, durationMinutes);
+            const templateResult = await this.db.query("SELECT duration_minutes FROM class_templates WHERE id = $1", [templateId]);
+            if (templateResult.rows.length === 0) {
+                return {
+                    isAvailable: false,
+                    reason: "Class template not found",
+                };
+            }
+            const durationMinutes = templateResult.rows[0].duration_minutes;
+            const [hours, minutes] = scheduleStartTime.split(':').map(Number);
+            const startMinutes = hours * 60 + minutes;
+            const endMinutes = startMinutes + durationMinutes;
+            const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
             const conflictingCohorts = await this.db.query(`
-        SELECT c.name 
+        SELECT c.id, c.name, c.schedule_days, c.schedule_start_time,
+               ct.duration_minutes,
+               c.term_start_date, c.term_end_date
         FROM cohorts c
-        WHERE c.establishment_id = $1 
+        INNER JOIN class_templates ct ON c.template_id = ct.id
+        WHERE c.establishment_id = $1
           AND c.instructor_id = $2
           AND c.is_active = true
-          AND c.id != COALESCE($7, '00000000-0000-0000-0000-000000000000')
-          AND c.schedule_days && $3
+          AND c.id != $3
           AND (
-            (c.schedule_start_time <= $4 AND $4 < (c.schedule_start_time + (c.schedule_duration_minutes || ' minutes')::interval))
-            OR 
-            ($4 <= c.schedule_start_time AND c.schedule_start_time < $5)
+            (c.term_start_date <= $4 AND c.term_end_date >= $5) OR
+            (c.term_start_date <= $6 AND c.term_end_date >= $5) OR
+            (c.term_start_date >= $5 AND c.term_start_date <= $6)
           )
-          AND (
-            (c.term_start_date <= $6 AND $6 <= c.term_end_date)
-            OR
-            ($6 <= c.term_start_date AND c.term_start_date <= $7)
-          )
+        `, [
+                establishmentId,
+                instructorId,
+                excludeCohortId,
+                termStartDate,
+                termStartDate,
+                termEndDate,
+            ]);
+            for (const cohort of conflictingCohorts.rows) {
+                const cohortDays = cohort.schedule_days;
+                const cohortStartTime = cohort.schedule_start_time;
+                const cohortDuration = cohort.duration_minutes;
+                const dayOverlap = scheduleDays.some((day) => cohortDays.includes(day));
+                if (dayOverlap) {
+                    const [cohortHours, cohortMinutes] = cohortStartTime.split(':').map(Number);
+                    const cohortStartMinutes = cohortHours * 60 + cohortMinutes;
+                    const cohortEndMinutes = cohortStartMinutes + cohortDuration;
+                    const buffer = 15;
+                    const timeOverlap = ((startMinutes >= cohortStartMinutes - buffer && startMinutes <= cohortEndMinutes + buffer) ||
+                        (endMinutes >= cohortStartMinutes - buffer && endMinutes <= cohortEndMinutes + buffer) ||
+                        (startMinutes <= cohortStartMinutes && endMinutes >= cohortEndMinutes));
+                    if (timeOverlap) {
+                        const dayNames = {
+                            0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
+                            4: 'Thursday', 5: 'Friday', 6: 'Saturday'
+                        };
+                        const conflictDays = scheduleDays
+                            .filter((day) => cohortDays.includes(day))
+                            .map((day) => dayNames[day])
+                            .join(', ');
+                        return {
+                            isAvailable: false,
+                            reason: `Instructor has a conflicting cohort "${cohort.name}" on ${conflictDays} from ${cohortStartTime} to ${Math.floor(cohortEndMinutes / 60)}:${(cohortEndMinutes % 60).toString().padStart(2, '0')}`
+                        };
+                    }
+                }
+            }
+            return { isAvailable: true };
+        }
+        catch (error) {
+            this.logger.error("Error checking instructor availability for update", {
+                error,
+                instructorId,
+                excludeCohortId,
+            });
+            return {
+                isAvailable: false,
+                reason: "Failed to check instructor availability",
+            };
+        }
+    }
+    async checkInstructorAvailability(establishmentId, instructorId, scheduleDays, startTime, newCohortTemplateId, termStart, termEnd, excludeCohortId) {
+        try {
+            const conflictingCohorts = await this.db.query(`
+      WITH new_cohort_details AS (
+        -- Use a CTE to get the duration of the proposed new cohort just once
+        SELECT duration_minutes
+        FROM class_templates
+        WHERE id = $8 -- The templateId for the new cohort
+      )
+      SELECT c.name
+      FROM cohorts c
+      -- Join to get the duration for EXISTING cohorts
+      JOIN class_templates ct_existing ON c.template_id = ct_existing.id
+      -- Cross join with our new cohort's details
+      CROSS JOIN new_cohort_details
+      WHERE
+        c.establishment_id = $1
+        AND c.instructor_id = $2
+        AND c.is_active = true
+        AND c.id != COALESCE($7, '00000000-0000-0000-0000-000000000000')::uuid
+        AND c.schedule_days && $3::integer[]
+        AND (c.term_start_date, c.term_end_date) OVERLAPS ($5::date, $6::date)
+        -- The OVERLAPS check using both durations
+        AND (
+          -- Interval for the EXISTING cohort from the join
+          c.schedule_start_time,
+          c.schedule_start_time + (ct_existing.duration_minutes || ' minutes')::interval
+        ) OVERLAPS (
+          -- Interval for the NEW cohort using the duration from the CTE
+          $4::time,
+          $4::time + (new_cohort_details.duration_minutes || ' minutes')::interval
+        )
       `, [
                 establishmentId,
                 instructorId,
                 scheduleDays,
                 startTime,
-                endTime,
                 termStart,
                 termEnd,
+                excludeCohortId,
+                newCohortTemplateId,
             ]);
             if (conflictingCohorts.rows.length > 0) {
                 return {
                     isAvailable: false,
-                    reason: `Instructor has conflicting cohort: ${conflictingCohorts.rows[0].name}`,
+                    reason: `Instructor has a conflicting class: ${conflictingCohorts.rows[0].name}`,
                 };
             }
             return { isAvailable: true };
@@ -482,7 +684,7 @@ export class CohortsService {
         const [hours, minutes] = startTime.split(":").map(Number);
         const startMinutes = hours * 60 + minutes;
         const endMinutes = startMinutes + durationMinutes;
-        const endHours = Math.floor(endMinutes / 60);
+        const endHours = Math.floor(endMinutes / 60) % 24;
         const endMins = endMinutes % 60;
         return `${endHours.toString().padStart(2, "0")}:${endMins
             .toString()
@@ -528,17 +730,17 @@ export class CohortsService {
             if (!cohort) {
                 return {
                     success: false,
-                    message: "Cohort not found",
+                    message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     error: {
                         code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                        message: "Cohort not found",
+                        message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                     },
                 };
             }
             return {
                 success: true,
                 data: cohort,
-                message: "Cohort retrieved successfully",
+                message: ERROR_MESSAGES.COHORT_RETRIEVED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -549,10 +751,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to retrieve cohort",
+                message: ERROR_MESSAGES.COHORT_NOT_FOUND,
                 error: {
                     code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }
@@ -587,7 +789,7 @@ export class CohortsService {
                 },
                 error: {
                     code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                    message: "Failed to retrieve cohorts",
+                    message: ERROR_MESSAGES.FAILED_TO_RETRIEVE_COHORTS,
                 },
             };
         }
@@ -598,7 +800,7 @@ export class CohortsService {
             return {
                 success: true,
                 data: stats,
-                message: "Statistics retrieved successfully",
+                message: ERROR_MESSAGES.STATISTICS_RETRIEVED_SUCCESSFULLY,
             };
         }
         catch (error) {
@@ -609,10 +811,10 @@ export class CohortsService {
             });
             return {
                 success: false,
-                message: "Failed to retrieve statistics",
+                message: ERROR_MESSAGES.FAILED_TO_RETRIEVE_STATISTICS,
                 error: {
                     code: COHORT_ERRORS.COHORT_NOT_FOUND,
-                    message: "An unexpected error occurred",
+                    message: ERROR_MESSAGES.UNEXPECTED_ERROR,
                 },
             };
         }

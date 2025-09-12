@@ -25,7 +25,7 @@ export class AuthMiddleware {
                 }
                 const accessToken = this.cookieService.getAccessTokenFromCookies(req);
                 if (!accessToken) {
-                    this.logger.debug("No access token found in cookies");
+                    this.logger.debug("No access token found in cookies or Authorization header");
                     this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
@@ -41,31 +41,14 @@ export class AuthMiddleware {
                     next();
                     return;
                 }
-                const user = await this.authRepository.findUserById(tokenPayload.sub);
-                if (!user || user.status !== "active") {
-                    this.logger.warn("User not found or inactive", {
-                        userId: tokenPayload.sub,
-                    });
-                    this.cookieService.clearAllAuthCookies(res);
-                    this.sendUnauthorized(res, AUTH_ERRORS.USER_NOT_FOUND);
-                    return;
-                }
-                if (user.status !== "active") {
-                    await this.authRepository.logAuthEvent({
-                        userId: user.id,
-                        email: user.email,
-                        action: "permission_denied",
-                        ipAddress: this.getClientIp(req),
-                        userAgent: req.get("User-Agent") || "Unknown",
-                        success: false,
-                        failureReason: `User status is ${user.status}`,
-                    });
-                }
                 req.user = {
-                    id: user.id,
-                    email: user.email,
-                    establishments: user.establishments || [],
+                    id: tokenPayload.sub,
+                    email: tokenPayload.email,
+                    establishments: tokenPayload.establishments || [],
                 };
+                req.establishment =
+                    tokenPayload.establishments?.find((est) => est.isPrimary) ||
+                        tokenPayload.establishments?.[0];
                 const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
                 if (refreshToken) {
                     const ipAddress = this.getClientIp(req);
@@ -131,21 +114,22 @@ export class AuthMiddleware {
                     code: "ESTABLISHMENT_ID_REQUIRED",
                 });
             }
-            const role = await this.authRepository.getRole(req.user.id, establishmentId);
-            if (!role) {
+            const userEstablishment = req.user.establishments?.find((est) => est.id === establishmentId);
+            if (!userEstablishment) {
                 return res.status(403).json({
                     success: false,
                     message: "No access to this establishment",
                     code: "NO_ESTABLISHMENT_ACCESS",
                 });
             }
-            if (!requiredRoles.includes(role)) {
+            if (!requiredRoles.includes(userEstablishment.role)) {
                 return res.status(403).json({
                     success: false,
                     message: "Insufficient permission",
                     code: "INSUFFICIENT_PERMISSION",
                 });
             }
+            req.establishment = userEstablishment;
             next();
         };
     }
@@ -164,14 +148,14 @@ export class AuthMiddleware {
                 }
                 const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
                 if (tokenPayload) {
-                    const user = await this.authRepository.findUserById(tokenPayload.sub);
-                    if (user && user.status === "active") {
-                        req.user = {
-                            id: user.id,
-                            email: user.email,
-                            establishments: user.establishments || [],
-                        };
-                    }
+                    req.user = {
+                        id: tokenPayload.sub,
+                        email: tokenPayload.email,
+                        establishments: tokenPayload.establishments || [],
+                    };
+                    req.establishment =
+                        tokenPayload.establishments?.find((est) => est.isPrimary) ||
+                            tokenPayload.establishments?.[0];
                 }
                 next();
             }

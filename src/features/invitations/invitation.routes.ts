@@ -16,6 +16,22 @@ import Joi from "joi";
 // Validation schemas
 const createStudentInvitationSchema = Joi.object({
   sessionId: Joi.string().uuid().optional(),
+  cohortId: Joi.string().uuid().optional(),
+  message: Joi.string().max(500).optional(),
+  expiryHours: Joi.number().min(0.1).max(24).optional(),
+  usageLimit: Joi.number().integer().min(1).max(50).optional(),
+}).custom((obj, helpers) => {
+  // Ensure only one target is specified
+  if (obj.sessionId && obj.cohortId) {
+    return helpers.error('any.invalid', {
+      message: 'Cannot specify both sessionId and cohortId. Choose one.'
+    });
+  }
+  return obj;
+});
+
+const createCohortInvitationSchema = Joi.object({
+  cohortId: Joi.string().uuid().required(),
   message: Joi.string().max(500).optional(),
   expiryHours: Joi.number().min(0.1).max(24).optional(),
   usageLimit: Joi.number().integer().min(1).max(50).optional(),
@@ -145,6 +161,8 @@ const createInvitationRoutes = (
    *                       type: string
    *                     sessionName:
    *                       type: string
+   *                     cohortName:
+   *                       type: string
    *                     type:
    *                       type: string
    *                       enum: [instructor, student]
@@ -248,6 +266,10 @@ const createInvitationRoutes = (
    *                 type: string
    *                 format: uuid
    *                 description: Specific class session to enroll student in
+   *               cohortId:
+   *                 type: string
+   *                 format: uuid
+   *                 description: Specific cohort to enroll student in (cannot be used with sessionId)
    *               message:
    *                 type: string
    *                 maxLength: 500
@@ -292,6 +314,108 @@ const createInvitationRoutes = (
     invitationRateLimit,
     ValidationMiddleware.validateBody(createStudentInvitationSchema),
     controller.createStudentInvitation.bind(controller)
+  );
+
+  /**
+   * @swagger
+   * /invitations/create-cohort-invitation:
+   *   post:
+   *     tags: [Invitations]
+   *     summary: Create cohort invitation
+   *     description: Create invitation link for students to join a specific cohort and be auto-enrolled in all future sessions
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: header
+   *         name: X-Establishment-ID
+   *         required: false
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Establishment ID (optional if user has default)
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - cohortId
+   *             properties:
+   *               cohortId:
+   *                 type: string
+   *                 format: uuid
+   *                 description: ID of the cohort to enroll students in
+   *               message:
+   *                 type: string
+   *                 maxLength: 500
+   *                 description: Welcome message for students
+   *               expiryHours:
+   *                 type: number
+   *                 minimum: 0.1
+   *                 maximum: 24
+   *                 description: Hours until invitation expires (max 24)
+   *               usageLimit:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 50
+   *                 description: Maximum number of students who can use this link
+   *             example:
+   *               cohortId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+   *               message: "Join our Tuesday Ballet Ages 10-12 class!"
+   *               expiryHours: 24
+   *               usageLimit: 10
+   *     responses:
+   *       201:
+   *         description: Cohort invitation created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: string
+   *                       format: uuid
+   *                     invitationUrl:
+   *                       type: string
+   *                       example: "http://localhost:3000/invite/abc123def456"
+   *                     cohortId:
+   *                       type: string
+   *                       format: uuid
+   *                     cohortName:
+   *                       type: string
+   *                       example: "Tuesday Ballet Ages 10-12"
+   *                     usageLimit:
+   *                       type: integer
+   *                       example: 10
+   *                     expiresAt:
+   *                       type: string
+   *                       format: date-time
+   *                     type:
+   *                       type: string
+   *                       example: student
+   *                 message:
+   *                   type: string
+   *                   example: "Cohort invitation created successfully"
+   *       400:
+   *         description: Invalid input data or cohort not found
+   *       403:
+   *         description: Only instructors and managers can create cohort invitations
+   *       404:
+   *         description: Cohort not found
+   */
+  router.post(
+    "/create-cohort-invitation",
+    invitationRateLimit,
+    authMiddleware.requireEstablishmentAccess(["instructor", "manager"]),
+    ValidationMiddleware.validateBody(createCohortInvitationSchema),
+    controller.createCohortInvitation.bind(controller)
   );
 
   /**

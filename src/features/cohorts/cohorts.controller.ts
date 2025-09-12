@@ -9,6 +9,7 @@ import {
   GenerateSessionsForCohortRequest,
   COHORT_ERRORS,
 } from "./cohorts.types.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -35,7 +36,7 @@ export class CohortsController {
   private getEstablishmentId(req: AuthenticatedRequest): string {
     const establishmentId = req.establishment?.id;
     if (!establishmentId) {
-      throw new Error("Establishment ID is required");
+      throw new Error(ERROR_MESSAGES.ESTABLISHMENT_ID_REQUIRED);
     }
     return establishmentId;
   }
@@ -54,7 +55,7 @@ export class CohortsController {
   ): string {
     const value = req.params[paramName];
     if (!value) {
-      throw new Error(`Required parameter '${paramName}' is missing`);
+      throw new Error(`${ERROR_MESSAGES.REQUIRED_PARAMETER_MISSING}: '${paramName}'`);
     }
     return value;
   }
@@ -113,10 +114,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -151,10 +152,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -210,10 +211,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -232,19 +233,6 @@ export class CohortsController {
       const id = this.getRequiredParam(req, "id");
       const userId = req.user?.id || "";
 
-      // Check if user is manager
-      if (req.user?.role !== "manager" && req.user?.role !== "admin") {
-        res.status(403).json({
-          success: false,
-          message: "Only managers can update cohorts",
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Only managers can update cohorts",
-          },
-        });
-        return;
-      }
-
       const updates: UpdateCohortRequest = req.body;
 
       this.logger.info("Updating cohort via API", {
@@ -255,26 +243,51 @@ export class CohortsController {
         ip: this.getClientIp(req),
       });
 
-      // For now, use repository method directly - can be enhanced with service layer validation
-      const cohort = await this.cohortsService[
-        "cohortsRepository"
-      ].updateCohort(establishmentId, id, updates);
+      // Use service method with conflict checking
+      const result = await this.cohortsService.updateCohort(
+        establishmentId,
+        id,
+        updates,
+        userId
+      );
 
-      if (cohort) {
-        res.status(200).json({
-          success: true,
-          data: cohort,
-          message: "Cohort updated successfully",
-        });
+      if (result.success) {
+        // Log activity
+        if (this.db) {
+          try {
+            await this.db.query(
+              `
+              INSERT INTO activities (
+                establishment_id, activity_type, title, description, user_id
+              ) VALUES ($1, $2, $3, $4, $5)
+            `,
+              [
+                establishmentId,
+                "class",
+                "Cohort updated",
+                `Updated cohort: ${result.data!.name}`,
+                userId,
+              ]
+            );
+          } catch (logError) {
+            this.logger.warn("Failed to log activity for cohort update", {
+              logError,
+              cohortId: id,
+            });
+          }
+        }
+
+        res.status(200).json(result);
       } else {
-        res.status(404).json({
-          success: false,
-          message: "Cohort not found",
-          error: {
-            code: COHORT_ERRORS.COHORT_NOT_FOUND,
-            message: "Cohort not found",
-          },
-        });
+        // Determine appropriate status code based on error type
+        let statusCode = 400;
+        if (result.error?.code === "COHORT_NOT_FOUND") {
+          statusCode = 404;
+        } else if (result.error?.code === "INSTRUCTOR_NOT_AVAILABLE") {
+          statusCode = 409; // Conflict
+        }
+
+        res.status(statusCode).json(result);
       }
     } catch (error) {
       this.logger.error("Error in updateCohort controller", {
@@ -287,10 +300,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -309,19 +322,6 @@ export class CohortsController {
       const id = this.getRequiredParam(req, "id");
       const userId = req.user?.id || "";
 
-      // Check if user is manager
-      if (req.user?.role !== "manager" && req.user?.role !== "admin") {
-        res.status(403).json({
-          success: false,
-          message: "Only managers can delete cohorts",
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Only managers can delete cohorts",
-          },
-        });
-        return;
-      }
-
       this.logger.info("Deleting cohort via API", {
         establishmentId,
         cohortId: id,
@@ -334,17 +334,42 @@ export class CohortsController {
       ].deleteCohort(establishmentId, id);
 
       if (deleted) {
+        // Log activity
+        if (this.db) {
+          try {
+            await this.db.query(
+              `
+              INSERT INTO activities (
+                establishment_id, activity_type, title, description, user_id
+              ) VALUES ($1, $2, $3, $4, $5)
+            `,
+              [
+                establishmentId,
+                "class",
+                "Cohort deleted",
+                "Cohort was deleted",
+                userId,
+              ]
+            );
+          } catch (logError) {
+            this.logger.warn("Failed to log activity for cohort deletion", {
+              logError,
+              cohortId: id,
+            });
+          }
+        }
+
         res.status(200).json({
           success: true,
-          message: "Cohort deleted successfully",
+          message: ERROR_MESSAGES.COHORT_DELETED_SUCCESSFULLY,
         });
       } else {
         res.status(404).json({
           success: false,
-          message: "Cohort not found",
+          message: ERROR_MESSAGES.COHORT_NOT_FOUND,
           error: {
             code: COHORT_ERRORS.COHORT_NOT_FOUND,
-            message: "Cohort not found",
+            message: ERROR_MESSAGES.COHORT_NOT_FOUND,
           },
         });
       }
@@ -358,10 +383,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -399,10 +424,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -457,10 +482,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -512,6 +537,34 @@ export class CohortsController {
         cohortId,
         request.studentId
       );
+
+      // Log activity
+      if (this.db) {
+        try {
+          await this.db.query(
+            `
+            INSERT INTO activities (
+              establishment_id, activity_type, title, description,
+              user_id, student_id
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+            [
+              establishmentId,
+              "enrollment",
+              "Student joined cohort",
+              "Student enrolled in cohort",
+              userId,
+              request.studentId,
+            ]
+          );
+        } catch (logError) {
+          this.logger.warn("Failed to log activity for student enrollment", {
+            logError,
+            cohortId,
+            studentId: request.studentId,
+          });
+        }
+      }
 
       res.status(201).json({
         success: true,
@@ -574,19 +627,6 @@ export class CohortsController {
       const cohortId = this.getRequiredParam(req, "cohortId");
       const userId = req.user?.id || "";
 
-      // Check permissions - only managers can bulk enroll
-      if (req.user?.role !== "manager" && req.user?.role !== "admin") {
-        res.status(403).json({
-          success: false,
-          message: "Only managers can bulk enroll students",
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Only managers can bulk enroll students",
-          },
-        });
-        return;
-      }
-
       const {
         studentIds,
         paymentType,
@@ -642,10 +682,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -722,10 +762,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -745,19 +785,6 @@ export class CohortsController {
       const establishmentId = this.getEstablishmentId(req);
       const cohortId = this.getRequiredParam(req, "cohortId");
       const userId = req.user?.id || "";
-
-      // Check permissions - only managers can generate sessions
-      if (req.user?.role !== "manager" && req.user?.role !== "admin") {
-        res.status(403).json({
-          success: false,
-          message: "Only managers can generate sessions",
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Only managers can generate sessions",
-          },
-        });
-        return;
-      }
 
       const options: GenerateSessionsForCohortRequest = req.body;
 
@@ -794,10 +821,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -851,10 +878,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -872,19 +899,6 @@ export class CohortsController {
       const establishmentId = this.getEstablishmentId(req);
       const cohortId = this.getRequiredParam(req, "cohortId");
       const userId = req.user?.id || "";
-
-      // Check permissions - only managers can clone cohorts
-      if (req.user?.role !== "manager" && req.user?.role !== "admin") {
-        res.status(403).json({
-          success: false,
-          message: "Only managers can clone cohorts",
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Only managers can clone cohorts",
-          },
-        });
-        return;
-      }
 
       const { startDate, endDate } = req.body;
 
@@ -933,10 +947,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -1014,10 +1028,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -1081,10 +1095,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }
@@ -1126,10 +1140,10 @@ export class CohortsController {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         error: {
           code: "INTERNAL_ERROR",
-          message: "An unexpected error occurred",
+          message: ERROR_MESSAGES.UNEXPECTED_ERROR,
         },
       });
     }

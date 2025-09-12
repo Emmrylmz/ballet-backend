@@ -15,6 +15,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+ENV TZ=Europe/Istanbul
+
 # Install ALL dependencies including devDependencies
 RUN npm install && npm cache clean --force
 

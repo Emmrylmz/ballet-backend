@@ -15,6 +15,7 @@ services:
       DB_DATABASE: ${DB_DATABASE}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: 5432
+      TZ: Europe/Istanbul  # Add this for Turkey timezone
     depends_on:
       - db
     command: npm run dev:nodemon # Use nodemon for development hot-reloading
@@ -32,7 +33,7 @@ services:
       POSTGRES_DB: ${DB_DATABASE}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./database-schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migrations:/docker-entrypoint-initdb.d/init.sql
 
  
 volumes:

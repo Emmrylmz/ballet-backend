@@ -22,6 +22,8 @@ import { InvitationRepository } from "../features/invitations/invitation.reposit
 import { ClassesFactory } from "../features/classes/classes.factory.js";
 import { CohortsFactory } from "../features/cohorts/cohorts.factory.js";
 import { DashboardFactory } from "../features/dashboard/dashboard.factory.js";
+import { StudentsFactory } from "../features/students/students.factory.js";
+import { AttendanceFactory } from "../features/attendance/attendance.factory.js";
 
 export interface ApplicationConfig {
   port: number;
@@ -339,9 +341,19 @@ export class Application {
         module: "dashboard",
         isDashboard: true,
       },
+      {
+        path: "/api/v1/students",
+        module: "students",
+        isStudents: true,
+      },
+      {
+        path: "/api/v1/attendance",
+        module: "attendance",
+        isAttendance: true,
+      },
     ];
 
-    for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard } of routes) {
+    for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard, isStudents, isAttendance } of routes) {
       try {
         if (isAuth) {
           // Handle auth routes specially
@@ -378,6 +390,20 @@ export class Application {
           if (dashboardRoutes) {
             this.app.use(path, dashboardRoutes);
             this.logger.info(`Loaded dashboard routes: ${path}`);
+          }
+        } else if (isStudents) {
+          // Handle students routes specially
+          const studentsRoutes = await this.setupStudentsModule();
+          if (studentsRoutes) {
+            this.app.use(path, studentsRoutes);
+            this.logger.info(`Loaded students routes: ${path}`);
+          }
+        } else if (isAttendance) {
+          // Handle attendance routes specially
+          const attendanceRoutes = await this.setupAttendanceModule();
+          if (attendanceRoutes) {
+            this.app.use(path, attendanceRoutes);
+            this.logger.info(`Loaded attendance routes: ${path}`);
           }
         } else {
           // Handle other routes
@@ -559,6 +585,76 @@ export class Application {
       return dashboardModule.dashboardRouter;
     } catch (error) {
       this.logger.error("Failed to setup dashboard module", { error });
+      throw error;
+    }
+  }
+
+  private async setupStudentsModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before students module"
+        );
+      }
+
+      // Create students module using factory
+      const studentsFactory = StudentsFactory.getInstance();
+      const studentsModule = studentsFactory.createStudentsModule(
+        this.database,
+        this.logger,
+        tokenService,
+        authRepository,
+        passwordService,
+        cookieService
+      );
+
+      this.logger.info("Students module initialized successfully");
+      return studentsModule.studentsRouter;
+    } catch (error) {
+      this.logger.error("Failed to setup students module", { error });
+      throw error;
+    }
+  }
+
+  private async setupAttendanceModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before attendance module"
+        );
+      }
+
+      // Create attendance module using factory
+      const attendanceFactory = AttendanceFactory.getInstance();
+      const attendanceModule = attendanceFactory.createAttendanceModule(
+        this.database,
+        this.logger,
+        tokenService,
+        authRepository,
+        passwordService,
+        cookieService
+      );
+
+      this.logger.info("Attendance module initialized successfully");
+      return attendanceModule.attendanceRouter;
+    } catch (error) {
+      this.logger.error("Failed to setup attendance module", { error });
       throw error;
     }
   }

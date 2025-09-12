@@ -168,6 +168,7 @@ export interface SessionEnrollment {
   studentId: string;
   studentName: string;
   studentEmail: string;
+  studentPhone: string;
   enrollmentDate: Date;
   isWaitlist: boolean;
   isNotifiedAbsence?: boolean;

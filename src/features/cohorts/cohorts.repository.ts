@@ -12,9 +12,41 @@ import {
   CohortEnrollmentSummary,
   HolidayBreak,
 } from "./cohorts.types.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 
 export class CohortsRepository {
   constructor(private db: DatabaseService) {}
+
+  /**
+   * Log activity to activities table
+   */
+  async logActivity(
+    establishmentId: string,
+    activityType: 'class' | 'enrollment',
+    title: string,
+    description: string,
+    userId?: string,
+    studentId?: string,
+    sessionId?: string
+  ): Promise<void> {
+    await this.db.query(
+      `
+      INSERT INTO activities (
+        establishment_id, activity_type, title, description,
+        user_id, student_id, session_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
+      [
+        establishmentId,
+        activityType,
+        title,
+        description,
+        userId || null,
+        studentId || null,
+        sessionId || null,
+      ]
+    );
+  }
 
   // COHORT CRUD OPERATIONS
 
@@ -338,13 +370,13 @@ export class CohortsRepository {
       [cohortId, establishmentId]
     );
     if (cohortCheck.rows.length === 0) {
-      throw new Error("Cohort not found or access denied");
+      throw new Error(ERROR_MESSAGES.COHORT_NOT_FOUND_OR_ACCESS_DENIED);
     }
 
     // Check if student is already enrolled
     const existing = await this.isStudentEnrolled(cohortId, request.studentId);
     if (existing) {
-      throw new Error("Student already enrolled in this cohort");
+      throw new Error(ERROR_MESSAGES.STUDENT_ALREADY_ENROLLED);
     }
 
     // Check cohort capacity
@@ -363,7 +395,7 @@ export class CohortsRepository {
     if (capacityCheck.rows.length > 0) {
       const { max_students, current_enrollment } = capacityCheck.rows[0];
       if (parseInt(current_enrollment) >= max_students) {
-        throw new Error("Cohort is at full capacity");
+        throw new Error(ERROR_MESSAGES.COHORT_AT_FULL_CAPACITY);
       }
     }
 
@@ -401,7 +433,7 @@ export class CohortsRepository {
       [cohortId, establishmentId]
     );
     if (cohortCheck.rows.length === 0) {
-      throw new Error("Cohort not found or access denied");
+      throw new Error(ERROR_MESSAGES.COHORT_NOT_FOUND_OR_ACCESS_DENIED);
     }
 
     const leftDate = request.leftDate || new Date().toISOString().split("T")[0];

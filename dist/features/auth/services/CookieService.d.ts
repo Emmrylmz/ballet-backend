@@ -21,6 +21,7 @@ export declare class CookieService {
     setRefreshTokenCookie(res: Response, token: string): void;
     setTokenCookies(res: Response, accessToken: string, refreshToken: string): void;
     getAccessTokenFromCookies(req: Request): string | undefined;
+    getAccessToken(req: Request): string | undefined;
     getRefreshTokenFromCookies(req: Request): string | undefined;
     clearAccessTokenCookie(res: Response): void;
     clearRefreshTokenCookie(res: Response): void;

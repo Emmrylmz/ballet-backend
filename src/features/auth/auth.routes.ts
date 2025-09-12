@@ -1,9 +1,9 @@
-import { Router } from 'express';
-import Joi from 'joi';
-import { AuthController } from './auth.controller.js';
-import { AuthMiddleware } from './middleware/AuthMiddleware.js';
-import { ValidationMiddleware } from '../../middleware/ValidationMiddleware.js';
-import { UserRole } from './auth.types.js';
+import { Router } from "express";
+import Joi from "joi";
+import { AuthController } from "./auth.controller.js";
+import { AuthMiddleware } from "./middleware/AuthMiddleware.js";
+import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
+import { UserRole } from "./auth.types.js";
 
 /**
  * @swagger
@@ -75,7 +75,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/login',
+      "/login",
       ValidationMiddleware.validateBody(this.getLoginSchema()),
       this.authController.login.bind(this.authController)
     );
@@ -114,7 +114,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/register',
+      "/register",
       ValidationMiddleware.validateBody(this.getRegisterSchema()),
       this.authController.register.bind(this.authController)
     );
@@ -159,7 +159,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/activate',
+      "/activate",
       ValidationMiddleware.validateBody(this.getActivateSchema()),
       this.authController.activateAccount.bind(this.authController)
     );
@@ -192,7 +192,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/forgot-password',
+      "/forgot-password",
       ValidationMiddleware.validateBody(this.getForgotPasswordSchema()),
       this.authController.forgotPassword.bind(this.authController)
     );
@@ -231,7 +231,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/reset-password',
+      "/reset-password",
       ValidationMiddleware.validateBody(this.getResetPasswordSchema()),
       this.authController.resetPassword.bind(this.authController)
     );
@@ -286,8 +286,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/refresh-token',
-      ValidationMiddleware.validateBody(this.getRefreshTokenSchema()),
+      "/refresh-token",
       this.authController.refreshToken.bind(this.authController)
     );
 
@@ -320,7 +319,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/check-password-strength',
+      "/check-password-strength",
       ValidationMiddleware.validateBody(this.getPasswordStrengthSchema()),
       this.authController.getPasswordStrength.bind(this.authController)
     );
@@ -360,7 +359,7 @@ export class AuthRoutes {
      *                       example: 1.0.0
      */
     this.router.get(
-      '/health',
+      "/health",
       this.authController.healthCheck.bind(this.authController)
     );
 
@@ -403,7 +402,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/logout',
+      "/logout",
       ValidationMiddleware.validateBody(this.getLogoutSchema()),
       this.authController.logout.bind(this.authController)
     );
@@ -450,7 +449,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.post(
-      '/change-password',
+      "/change-password",
       ValidationMiddleware.validateBody(this.getChangePasswordSchema()),
       this.authController.changePassword.bind(this.authController)
     );
@@ -491,13 +490,13 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.get(
-      '/me',
+      "/me",
       this.authController.getCurrentUser.bind(this.authController)
     );
 
     // Alias for frontend compatibility
     this.router.get(
-      '/profile',
+      "/profile",
       this.authController.getCurrentUser.bind(this.authController)
     );
 
@@ -556,7 +555,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.get(
-      '/validate-token',
+      "/validate-token",
       this.authController.validateToken.bind(this.authController)
     );
 
@@ -612,7 +611,7 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.get(
-      '/sessions',
+      "/sessions",
       this.authController.getUserSessions.bind(this.authController)
     );
 
@@ -670,13 +669,13 @@ export class AuthRoutes {
      *               $ref: '#/components/schemas/AuthError'
      */
     this.router.delete(
-      '/sessions/:sessionId',
+      "/sessions/:sessionId",
       ValidationMiddleware.validateParams(this.getSessionIdSchema()),
       this.authController.revokeSession.bind(this.authController)
     );
 
     // Admin routes (require admin role or higher)
-    this.router.use(this.authMiddleware.requireRoles('admin'));
+    this.router.use(this.authMiddleware.requireRoles("admin"));
 
     // Add admin-specific auth routes here if needed
     // For example: user management, role assignments, etc.
@@ -689,186 +688,148 @@ export class AuthRoutes {
   // Validation schemas
   private getLoginSchema(): Joi.ObjectSchema {
     return Joi.object({
-      email: Joi.string()
-        .email()
-        .required()
-        .messages({
-          'string.email': 'Please provide a valid email address',
-          'any.required': 'Email is required'
-        }),
-      password: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Password is required'
-        }),
-      establishmentId: Joi.string()
-        .uuid()
-        .optional()
-        .messages({
-          'string.uuid': 'Establishment ID must be a valid UUID'
-        }),
-      rememberMe: Joi.boolean()
-        .default(false)
-        .optional()
+      email: Joi.string().email().required().messages({
+        "string.email": "Please provide a valid email address",
+        "any.required": "Email is required",
+      }),
+      password: Joi.string().required().messages({
+        "any.required": "Password is required",
+      }),
+      establishmentId: Joi.string().uuid().optional().messages({
+        "string.uuid": "Establishment ID must be a valid UUID",
+      }),
+      rememberMe: Joi.boolean().default(false).optional(),
     });
   }
 
   private getRegisterSchema(): Joi.ObjectSchema {
     return Joi.object({
-      firstName: Joi.string()
-        .trim()
-        .min(2)
-        .max(50)
-        .required()
-        .messages({
-          'string.min': 'First name must be at least 2 characters long',
-          'string.max': 'First name must be less than 50 characters',
-          'any.required': 'First name is required'
-        }),
-      lastName: Joi.string()
-        .trim()
-        .min(2)
-        .max(50)
-        .required()
-        .messages({
-          'string.min': 'Last name must be at least 2 characters long',
-          'string.max': 'Last name must be less than 50 characters',
-          'any.required': 'Last name is required'
-        }),
-      email: Joi.string()
-        .email()
-        .required()
-        .messages({
-          'string.email': 'Please provide a valid email address',
-          'any.required': 'Email is required'
-        }),
+      firstName: Joi.string().trim().min(2).max(50).required().messages({
+        "string.min": "First name must be at least 2 characters long",
+        "string.max": "First name must be less than 50 characters",
+        "any.required": "First name is required",
+      }),
+      lastName: Joi.string().trim().min(2).max(50).required().messages({
+        "string.min": "Last name must be at least 2 characters long",
+        "string.max": "Last name must be less than 50 characters",
+        "any.required": "Last name is required",
+      }),
+      email: Joi.string().email().required().messages({
+        "string.email": "Please provide a valid email address",
+        "any.required": "Email is required",
+      }),
       password: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
+        .pattern(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/
+        )
         .required()
         .messages({
-          'string.min': 'Password must be at least 8 characters long',
-          'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-          'any.required': 'Password is required'
+          "string.min": "Password must be at least 8 characters long",
+          "string.pattern.base":
+            "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+          "any.required": "Password is required",
         }),
       phone: Joi.string()
         .pattern(/^[\+]?[1-9][\d]{0,15}$/)
         .required()
         .messages({
-          'string.pattern.base': 'Please provide a valid phone number',
-          'any.required': 'Phone number is required'
-        })
+          "string.pattern.base": "Please provide a valid phone number",
+          "any.required": "Phone number is required",
+        }),
     });
   }
 
   private getActivateSchema(): Joi.ObjectSchema {
     return Joi.object({
-      token: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Activation token is required'
-        }),
+      token: Joi.string().required().messages({
+        "any.required": "Activation token is required",
+      }),
       password: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
+        .pattern(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/
+        )
         .optional()
         .messages({
-          'string.min': 'Password must be at least 8 characters long',
-          'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-        })
+          "string.min": "Password must be at least 8 characters long",
+          "string.pattern.base":
+            "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+        }),
     });
   }
 
   private getForgotPasswordSchema(): Joi.ObjectSchema {
     return Joi.object({
-      email: Joi.string()
-        .email()
-        .required()
-        .messages({
-          'string.email': 'Please provide a valid email address',
-          'any.required': 'Email is required'
-        })
- 
+      email: Joi.string().email().required().messages({
+        "string.email": "Please provide a valid email address",
+        "any.required": "Email is required",
+      }),
     });
   }
 
   private getResetPasswordSchema(): Joi.ObjectSchema {
     return Joi.object({
-      token: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Reset token is required'
-        }),
+      token: Joi.string().required().messages({
+        "any.required": "Reset token is required",
+      }),
       newPassword: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
+        .pattern(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/
+        )
         .required()
         .messages({
-          'string.min': 'Password must be at least 8 characters long',
-          'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-          'any.required': 'New password is required'
-        })
+          "string.min": "Password must be at least 8 characters long",
+          "string.pattern.base":
+            "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+          "any.required": "New password is required",
+        }),
     });
   }
 
   private getChangePasswordSchema(): Joi.ObjectSchema {
     return Joi.object({
-      currentPassword: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Current password is required'
-        }),
+      currentPassword: Joi.string().required().messages({
+        "any.required": "Current password is required",
+      }),
       newPassword: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
+        .pattern(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/
+        )
         .required()
         .messages({
-          'string.min': 'Password must be at least 8 characters long',
-          'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-          'any.required': 'New password is required'
-        })
-    });
-  }
-
-  private getRefreshTokenSchema(): Joi.ObjectSchema {
-    return Joi.object({
-      refreshToken: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Refresh token is required'
-        })
+          "string.min": "Password must be at least 8 characters long",
+          "string.pattern.base":
+            "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+          "any.required": "New password is required",
+        }),
     });
   }
 
   private getLogoutSchema(): Joi.ObjectSchema {
     return Joi.object({
-      refreshToken: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Refresh token is required'
-        })
+      refreshToken: Joi.string().required().messages({
+        "any.required": "Refresh token is required",
+      }),
     });
   }
 
   private getPasswordStrengthSchema(): Joi.ObjectSchema {
     return Joi.object({
-      password: Joi.string()
-        .required()
-        .messages({
-          'any.required': 'Password is required'
-        })
+      password: Joi.string().required().messages({
+        "any.required": "Password is required",
+      }),
     });
   }
 
   private getSessionIdSchema(): Joi.ObjectSchema {
     return Joi.object({
-      sessionId: Joi.string()
-        .uuid()
-        .required()
-        .messages({
-          'string.uuid': 'Session ID must be a valid UUID',
-          'any.required': 'Session ID is required'
-        })
+      sessionId: Joi.string().uuid().required().messages({
+        "string.uuid": "Session ID must be a valid UUID",
+        "any.required": "Session ID is required",
+      }),
     });
   }
 }

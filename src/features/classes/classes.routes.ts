@@ -16,8 +16,20 @@ import Joi from "joi";
 // Validation schemas
 const createClassTemplateSchema = Joi.object({
   title: Joi.string().min(3).max(255).required(),
-  classType: Joi.string().valid('ballet', 'pilates', 'barre', 'yoga', 'contemporary', 'jazz', 'modern').required(),
-  skillLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'all_levels').required(),
+  classType: Joi.string()
+    .valid(
+      "ballet",
+      "pilates",
+      "barre",
+      "yoga",
+      "contemporary",
+      "jazz",
+      "modern"
+    )
+    .required(),
+  skillLevel: Joi.string()
+    .valid("beginner", "intermediate", "advanced", "all_levels")
+    .required(),
   instructorId: Joi.string().uuid().optional(),
   capacity: Joi.number().integer().min(1).max(50).required(),
   durationMinutes: Joi.number().integer().min(15).max(180).required(),
@@ -27,8 +39,20 @@ const createClassTemplateSchema = Joi.object({
 
 const updateClassTemplateSchema = Joi.object({
   title: Joi.string().min(3).max(255).optional(),
-  classType: Joi.string().valid('ballet', 'pilates', 'barre', 'yoga', 'contemporary', 'jazz', 'modern').optional(),
-  skillLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'all_levels').optional(),
+  classType: Joi.string()
+    .valid(
+      "ballet",
+      "pilates",
+      "barre",
+      "yoga",
+      "contemporary",
+      "jazz",
+      "modern"
+    )
+    .optional(),
+  skillLevel: Joi.string()
+    .valid("beginner", "intermediate", "advanced", "all_levels")
+    .optional(),
   instructorId: Joi.string().uuid().allow(null).optional(),
   capacity: Joi.number().integer().min(1).max(50).optional(),
   durationMinutes: Joi.number().integer().min(15).max(180).optional(),
@@ -38,35 +62,47 @@ const updateClassTemplateSchema = Joi.object({
 });
 
 const createClassSessionSchema = Joi.object({
-  classTemplateId: Joi.string().uuid().optional(),
-  instructorId: Joi.string().uuid().optional(),
-  sessionDate: Joi.date().iso().min('now').required(),
-  startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-  endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  capacity: Joi.number().integer().min(1).max(50).optional(),
+  sessionDate: Joi.date().iso().min("now").required(),
+  cohortId: Joi.string().uuid().required(),
+  startTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .required(),
+  endTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
+  override_instructor_id: Joi.string().uuid().allow(null).optional(),
   notes: Joi.string().max(500).optional(),
-  isRecurring: Joi.boolean().optional(),
-  recurrenceFrequency: Joi.string().valid('weekly', 'biweekly', 'monthly', 'daily').optional(),
-  recurrenceDaysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).optional(),
-  recurrenceEndDate: Joi.date().iso().min(Joi.ref('sessionDate')).optional(),
 });
 
 const updateClassSessionSchema = Joi.object({
   instructorId: Joi.string().uuid().allow(null).optional(),
   sessionDate: Joi.date().iso().optional(),
-  startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  startTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
+  endTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
   capacity: Joi.number().integer().min(1).max(50).optional(),
-  status: Joi.string().valid('scheduled', 'in_progress', 'completed', 'cancelled').optional(),
+  status: Joi.string()
+    .valid("scheduled", "in_progress", "completed", "cancelled")
+    .optional(),
   notes: Joi.string().max(500).allow(null).optional(),
 });
 
 const generateSessionsSchema = Joi.object({
-  startDate: Joi.date().iso().min('now').required(),
-  endDate: Joi.date().iso().min(Joi.ref('startDate')).required(),
-  daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).required(),
-  startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-  endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  startDate: Joi.date().iso().min("now").required(),
+  endDate: Joi.date().iso().min(Joi.ref("startDate")).required(),
+  daysOfWeek: Joi.array()
+    .items(Joi.number().integer().min(0).max(6))
+    .min(1)
+    .required(),
+  startTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .required(),
+  endTime: Joi.string()
+    .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
   instructorId: Joi.string().uuid().optional(),
   capacity: Joi.number().integer().min(1).max(50).optional(),
 });
@@ -801,19 +837,18 @@ const createClassesRoutes = (
    *             type: object
    *             required:
    *               - sessionDate
+   *               - cohortId
    *               - startTime
    *             properties:
-   *               classTemplateId:
-   *                 type: string
-   *                 format: uuid
-   *                 description: Template to base session on (optional)
-   *               instructorId:
-   *                 type: string
-   *                 format: uuid
    *               sessionDate:
    *                 type: string
    *                 format: date
    *                 example: "2024-01-15"
+   *                 description: Date for the session
+   *               cohortId:
+   *                 type: string
+   *                 format: uuid
+   *                 description: ID of the cohort this session belongs to
    *               startTime:
    *                 type: string
    *                 pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
@@ -822,28 +857,16 @@ const createClassesRoutes = (
    *                 type: string
    *                 pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
    *                 example: "11:00"
-   *               capacity:
-   *                 type: integer
-   *                 minimum: 1
-   *                 maximum: 50
+   *                 description: Optional - will be calculated from template if not provided
+   *               override_instructor_id:
+   *                 type: string
+   *                 format: uuid
+   *                 nullable: true
+   *                 description: Override the default cohort instructor for this session
    *               notes:
    *                 type: string
    *                 maxLength: 500
-   *               isRecurring:
-   *                 type: boolean
-   *                 default: false
-   *               recurrenceFrequency:
-   *                 type: string
-   *                 enum: [weekly, biweekly, monthly, daily]
-   *               recurrenceDaysOfWeek:
-   *                 type: array
-   *                 items:
-   *                   type: integer
-   *                   minimum: 0
-   *                   maximum: 6
-   *               recurrenceEndDate:
-   *                 type: string
-   *                 format: date
+   *                 description: Optional notes for the session
    *     responses:
    *       201:
    *         description: Session created successfully
@@ -864,7 +887,7 @@ const createClassesRoutes = (
   router.post(
     "/sessions",
     classCreationRateLimit,
-    authMiddleware.requireEstablishmentAccess(["manager"]),
+    authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validate(createClassSessionSchema),
     controller.createSession
   );
@@ -943,7 +966,7 @@ const createClassesRoutes = (
   router.put(
     "/sessions/:id",
     classCreationRateLimit,
-    authMiddleware.requireEstablishmentAccess(["manager"]),
+    authMiddleware.requireEstablishmentAccess(["manager","instructor"]),
     ValidationMiddleware.validate(updateClassSessionSchema),
     controller.updateSession
   );
@@ -990,7 +1013,7 @@ const createClassesRoutes = (
    */
   router.post(
     "/sessions/:id/cancel",
-    authMiddleware.requireEstablishmentAccess(["manager"]),
+    authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     controller.cancelSession
   );
 
@@ -1357,6 +1380,119 @@ const createClassesRoutes = (
     });
   });
 
+  /**
+   * @swagger
+   * /classes/dropdown-data:
+   *   get:
+   *     tags: [Classes]
+   *     summary: Get all dropdown data for classes
+   *     description: Fetch all dropdown options needed for class management (instructors and managers, class types, levels)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: header
+   *         name: X-Establishment-ID
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Establishment ID to get dropdown data for
+   *         example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+   *     responses:
+   *       200:
+   *         description: Combined dropdown data
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     instructors:
+   *                       type: array
+   *                       description: "Both instructors and managers who can teach classes"
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: string
+   *                             format: uuid
+   *                           name:
+   *                             type: string
+   *                             example: "Jane Smith"
+   *                           email:
+   *                             type: string
+   *                             example: "jane@example.com"
+   *                           phone:
+   *                             type: string
+   *                             example: "+1234567890"
+   *                           role:
+   *                             type: string
+   *                             enum: [instructor, manager]
+   *                             example: "instructor"
+   *                           isActive:
+   *                             type: boolean
+   *                             example: true
+   *                     classTypes:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: integer
+   *                           nameTr:
+   *                             type: string
+   *                             example: "Bale"
+   *                           nameEn:
+   *                             type: string
+   *                             example: "Ballet"
+   *                           isActive:
+   *                             type: boolean
+   *                             example: true
+   *                     classLevels:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                         properties:
+   *                           id:
+   *                             type: integer
+   *                           nameTr:
+   *                             type: string
+   *                             example: "Başlangıç"
+   *                           nameEn:
+   *                             type: string
+   *                             example: "Beginner"
+   *                           isActive:
+   *                             type: boolean
+   *                             example: true
+   *                 message:
+   *                   type: string
+   *                   example: "Dropdown data retrieved successfully"
+   *       400:
+   *         description: Missing or invalid establishment header
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: false
+   *                 message:
+   *                   type: string
+   *                   example: "Establishment ID is required. Please provide X-Establishment-ID header."
+   *                 code:
+   *                   type: string
+   *                   example: "ESTABLISHMENT_ACCESS_ERROR"
+   *       403:
+   *         description: Insufficient permissions
+   */
+  router.get("/dropdown-data", controller.getDropdownData.bind(controller));
+
   return router;
 };
 
@@ -1409,7 +1545,7 @@ const createClassesRoutes = (
  *         updatedAt:
  *           type: string
  *           format: date-time
- *     
+ *
  *     ClassSession:
  *       type: object
  *       properties:
@@ -1477,7 +1613,7 @@ const createClassesRoutes = (
  *         updatedAt:
  *           type: string
  *           format: date-time
- *     
+ *
  *     SessionEnrollment:
  *       type: object
  *       properties:
@@ -1504,7 +1640,7 @@ const createClassesRoutes = (
  *           type: boolean
  *         isNotifiedAbsence:
  *           type: boolean
- *     
+ *
  *     StudentEnrolledSession:
  *       type: object
  *       properties:
@@ -1531,7 +1667,7 @@ const createClassesRoutes = (
  *         enrollmentDate:
  *           type: string
  *           format: date-time
- *     
+ *
  *     ClassStats:
  *       type: object
  *       properties:
@@ -1558,7 +1694,7 @@ const createClassesRoutes = (
  *                 type: integer
  *         monthlyRevenue:
  *           type: number
- *     
+ *
  *     CalendarEvent:
  *       type: object
  *       properties:
@@ -1590,7 +1726,7 @@ const createClassesRoutes = (
  *         skillLevel:
  *           type: string
  *           enum: [beginner, intermediate, advanced, all_levels]
- *     
+ *
  *     Pagination:
  *       type: object
  *       properties:

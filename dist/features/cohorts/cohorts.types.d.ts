@@ -66,7 +66,6 @@ export interface CreateCohortRequest {
     maxStudents: number;
     scheduleDays: number[];
     scheduleStartTime: string;
-    scheduleDurationMinutes: number;
     termStartDate: string;
     termEndDate: string;
     holidayBreaks?: HolidayBreak[];
@@ -174,6 +173,8 @@ export interface CohortEnrollmentSummary {
 }
 export declare const COHORT_ERRORS: {
     readonly COHORT_NOT_FOUND: "COHORT_NOT_FOUND";
+    readonly COHORT_CREATION_FAILED: "COHORT_CREATION_FAILED";
+    readonly COHORT_UPDATE_FAILED: "COHORT_UPDATE_FAILED";
     readonly COHORT_FULL: "COHORT_FULL";
     readonly STUDENT_ALREADY_ENROLLED: "STUDENT_ALREADY_ENROLLED";
     readonly STUDENT_NOT_ENROLLED: "STUDENT_NOT_ENROLLED";
@@ -186,6 +187,5 @@ export declare const COHORT_ERRORS: {
     readonly SESSIONS_ALREADY_GENERATED: "SESSIONS_ALREADY_GENERATED";
     readonly MEMBERSHIP_OVERLAP: "MEMBERSHIP_OVERLAP";
     readonly INVALID_PAYMENT_TYPE: "INVALID_PAYMENT_TYPE";
-    readonly COHORT_CREATION_FAILED: "COHORT_CREATION_FAILED";
     readonly MEMBERSHIP_CREATION_FAILED: "MEMBERSHIP_CREATION_FAILED";
 };

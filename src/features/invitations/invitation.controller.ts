@@ -13,6 +13,7 @@ import {
   AUTH_ERRORS,
   SUCCESS_MESSAGES,
 } from "../../constants/errorMessages.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 
 interface Establishment {
   id: string;
@@ -63,7 +64,18 @@ export class InvitationController {
     try {
       // Check if user can invite students
 
-      const { sessionId, message, expiryHours, usageLimit } = req.body;
+      const { sessionId, cohortId, message, expiryHours, usageLimit } =
+        req.body;
+
+      // Validate that only one target is specified
+      if (sessionId && cohortId) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.CANNOT_SPECIFY_BOTH_SESSION_AND_COHORT,
+          code: "INVALID_INVITATION_TARGET",
+        });
+        return;
+      }
 
       // Validate expiry hours (max 24 hours)
       if (expiryHours && (expiryHours < 0.1 || expiryHours > 24)) {
@@ -89,6 +101,7 @@ export class InvitationController {
         type: "student",
         establishmentId: req.establishment!.id,
         sessionId,
+        cohortId,
         message,
         expiryHours,
         usageLimit,
@@ -108,6 +121,94 @@ export class InvitationController {
       this.logger.error("Failed to create student invitation", {
         error,
         userId: req.user?.id,
+      });
+      next(error);
+    }
+  }
+
+  /**
+   * POST /invitations/create-cohort-invitation
+   * Create invitation link for students to join a specific cohort
+   */
+  async createCohortInvitation(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { cohortId, message, expiryHours, usageLimit } = req.body;
+      if (!cohortId) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.COHORT_ID_REQUIRED,
+          code: "MISSING_COHORT_ID",
+        });
+        return;
+      }
+
+      // Validate expiry hours (max 24 hours)
+      if (expiryHours && (expiryHours < 0.1 || expiryHours > 24)) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.EXPIRY_HOURS_RANGE,
+          code: "INVALID_EXPIRY_HOURS",
+        });
+        return;
+      }
+
+      // Validate usage limit
+      if (usageLimit && (usageLimit < 1 || usageLimit > 50)) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.USAGE_LIMIT_RANGE,
+          code: "INVALID_USAGE_LIMIT",
+        });
+        return;
+      }
+
+      const invitationRequest: CreateInvitationRequest = {
+        type: "student",
+        establishmentId: req.establishment!.id,
+        cohortId,
+        message,
+        expiryHours,
+        usageLimit,
+      };
+
+      const invitation = await this.invitationService.createInvitation(
+        invitationRequest,
+        req.user!.id
+      );
+
+      res.status(201).json({
+        success: true,
+        data: invitation,
+        message: ERROR_MESSAGES.COHORT_INVITATION_CREATED,
+      });
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.message?.includes("Cohort not found")) {
+        res.status(404).json({
+          success: false,
+          message: ERROR_MESSAGES.COHORT_NOT_FOUND,
+          code: "COHORT_NOT_FOUND",
+        });
+        return;
+      }
+
+      if (error.message?.includes("invitations are disabled")) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.STUDENT_INVITATIONS_DISABLED,
+          code: "INVITATIONS_DISABLED",
+        });
+        return;
+      }
+
+      this.logger.error("Failed to create cohort invitation", {
+        error,
+        userId: req.user?.id,
+        establishmentId: req.establishment?.id,
       });
       next(error);
     }
@@ -307,7 +408,7 @@ export class InvitationController {
       if (!invitationId) {
         res.status(400).json({
           success: false,
-          message: "Invitation ID is required",
+          message: ERROR_MESSAGES.INVITATION_ID_REQUIRED,
           code: "MISSING_INVITATION_ID",
         });
         return;
@@ -345,7 +446,7 @@ export class InvitationController {
       if (!invitationId) {
         res.status(400).json({
           success: false,
-          message: "Invitation ID is required",
+          message: ERROR_MESSAGES.INVITATION_ID_REQUIRED,
           code: "MISSING_INVITATION_ID",
         });
         return;
@@ -360,7 +461,7 @@ export class InvitationController {
 
       res.json({
         success: true,
-        message: "Invitation revoked successfully",
+        message: ERROR_MESSAGES.INVITATION_REVOKED,
       });
     } catch (error: any) {
       // Handle permission-specific errors
@@ -445,6 +546,7 @@ export class InvitationController {
         data: {
           establishmentName: validation.establishmentName,
           sessionName: validation.sessionName,
+          cohortName: validation.cohortName,
           type: validation.invitation?.type,
           message: validation.invitation?.message,
           expiresAt: validation.invitation?.expiresAt,
@@ -458,6 +560,13 @@ export class InvitationController {
               emailNote:
                 "This instructor invitation requires you to be logged in with the invited email address",
             }),
+          // Include cohort information for cohort invitations
+          ...(validation.invitation?.cohortId && {
+            cohortId: validation.invitation.cohortId,
+            invitationType: "cohort",
+            enrollmentNote:
+              "You will be automatically enrolled in this cohort and all its future sessions",
+          }),
         },
         message: "Valid invitation",
       });

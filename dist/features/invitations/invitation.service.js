@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { INVITATION_ERRORS, AUTH_ERRORS, formatMessage, } from "../../constants/errorMessages.js";
+import { ERROR_MESSAGES } from "../../utils/error-messages.js";
 export class InvitationService {
     invitationRepository;
     authRepository;
@@ -148,7 +149,7 @@ export class InvitationService {
                 }));
             }
             if (usageLimit > 50) {
-                throw new Error("Kullanım limiti 50 kişiyi geçemez");
+                throw new Error(ERROR_MESSAGES.USAGE_LIMIT_EXCEEDED);
             }
             const invitationId = await this.invitationRepository.createInvitation({
                 establishmentId: request.establishmentId,
@@ -156,13 +157,14 @@ export class InvitationService {
                 type: request.type,
                 token,
                 usageLimit,
-                sessionId: request.sessionId,
+                sessionId: request.sessionId ?? undefined,
+                cohortId: request.cohortId ?? undefined,
                 message: request.message,
                 expiresAt,
             });
             const invitation = await this.invitationRepository.findByToken(token);
             if (!invitation.isValid || !invitation.invitation) {
-                throw new Error("Failed to create invitation");
+                throw new Error(ERROR_MESSAGES.FAILED_TO_CREATE_INVITATION);
             }
             const invitationUrl = this.generateInvitationUrl(token);
             this.logger.info("Invitation created successfully", {
@@ -179,6 +181,8 @@ export class InvitationService {
                 createdByName: invitation.invitation.createdByName,
                 sessionId: request.sessionId,
                 sessionName: invitation.sessionName,
+                cohortId: request.cohortId,
+                cohortName: invitation.cohortName,
                 message: request.message,
                 usageLimit,
                 usageCount: 0,
@@ -304,6 +308,63 @@ export class InvitationService {
             ON CONFLICT (session_id, student_id) DO NOTHING
           `, [invitation.sessionId, userId]);
                 }
+                if (invitation.type === "student" && invitation.cohortId) {
+                    const cohortCheck = await client.query(`
+            SELECT c.max_students, 
+                   COUNT(cm.id) as current_enrollment
+            FROM cohorts c
+            LEFT JOIN cohort_memberships cm ON c.id = cm.cohort_id AND cm.is_active = true
+            WHERE c.id = $1 AND c.is_active = true
+            GROUP BY c.id, c.max_students
+          `, [invitation.cohortId]);
+                    if (cohortCheck.rows.length === 0) {
+                        throw new Error(ERROR_MESSAGES.COHORT_NOT_FOUND_OR_INACTIVE);
+                    }
+                    const cohort = cohortCheck.rows[0];
+                    if (cohort.current_enrollment >= cohort.max_students) {
+                        throw new Error(ERROR_MESSAGES.COHORT_FULL);
+                    }
+                    const existingMembership = await client.query(`
+            SELECT id FROM cohort_memberships 
+            WHERE cohort_id = $1 AND student_id = $2 AND is_active = true
+          `, [invitation.cohortId, userId]);
+                    if (existingMembership.rows.length === 0) {
+                        await client.query(`
+              INSERT INTO cohort_memberships (
+                cohort_id, student_id, payment_type, joined_date, is_active, notes
+              ) VALUES ($1, $2, $3, CURRENT_DATE, true, $4)
+            `, [
+                            invitation.cohortId,
+                            userId,
+                            "drop_in",
+                            `Enrolled via invitation on ${new Date().toISOString().split("T")[0]}`
+                        ]);
+                        const futureSessions = await client.query(`
+              SELECT id FROM class_sessions 
+              WHERE cohort_id = $1 
+                AND session_date >= CURRENT_DATE 
+                AND status = 'scheduled'
+              ORDER BY session_date, start_time
+            `, [invitation.cohortId]);
+                        for (const session of futureSessions.rows) {
+                            try {
+                                await client.query(`
+                  INSERT INTO session_enrollments (
+                    establishment_id, session_id, student_id, is_waitlist
+                  ) VALUES ($1, $2, $3, false)
+                  ON CONFLICT (session_id, student_id) DO NOTHING
+                `, [invitation.establishmentId, session.id, userId]);
+                            }
+                            catch (enrollError) {
+                                console.warn("Failed to enroll student in future session", {
+                                    sessionId: session.id,
+                                    userId,
+                                    error: enrollError
+                                });
+                            }
+                        }
+                    }
+                }
                 await client.query(`
           INSERT INTO activities (
             establishment_id, activity_type, title, description, user_id
@@ -342,7 +403,7 @@ export class InvitationService {
         try {
             const invitationDetails = await this.invitationRepository.getInvitationById(invitationId);
             if (!invitationDetails) {
-                throw new Error("Invitation not found");
+                throw new Error(ERROR_MESSAGES.INVITATION_NOT_FOUND);
             }
             if (invitationDetails.type === "instructor") {
                 if (userRole !== "manager") {

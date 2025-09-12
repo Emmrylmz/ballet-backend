@@ -25,7 +25,6 @@ const createCohortSchema = Joi.object({
   scheduleStartTime: Joi.string()
     .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
     .required(),
-  scheduleDurationMinutes: Joi.number().integer().min(15).max(480).required(),
   termStartDate: Joi.string().isoDate().required(),
   termEndDate: Joi.string().isoDate().required(),
   holidayBreaks: Joi.array()

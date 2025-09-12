@@ -23,8 +23,8 @@ export class InvitationRepository {
         const result = await this.db.query(`
       INSERT INTO invitations (
         establishment_id, created_by, invitation_type, token, 
-        usage_limit, session_id, message, expires_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        usage_limit, session_id, cohort_id, message, expires_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `, [
             invitation.establishmentId,
@@ -33,6 +33,7 @@ export class InvitationRepository {
             invitation.token,
             invitation.usageLimit,
             invitation.sessionId || null,
+            invitation.cohortId || null,
             invitation.message || null,
             invitation.expiresAt,
         ]);
@@ -52,12 +53,14 @@ export class InvitationRepository {
         i.usage_limit,
         i.usage_count,
         i.session_id,
+        i.cohort_id,
         i.message,
         i.expires_at,
         i.created_at,
         i.updated_at,
         e.name as establishment_name,
         ct.title as session_name,
+        coh.name as cohort_name,
         u.first_name || ' ' || u.last_name as created_by_name,
         ii.email as instructor_email,
         ii.phone_number as instructor_phone
@@ -65,6 +68,7 @@ export class InvitationRepository {
       LEFT JOIN establishments e ON i.establishment_id = e.id
       LEFT JOIN class_sessions cs ON i.session_id = cs.id
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+      LEFT JOIN cohorts coh ON i.cohort_id = coh.id
       LEFT JOIN users u ON i.created_by = u.id
       LEFT JOIN instructor_invitations ii ON i.id = ii.invitation_id AND i.invitation_type = 'instructor'
       WHERE i.token = $1
@@ -101,6 +105,7 @@ export class InvitationRepository {
             invitation: this.mapRowToInvitation(invitation),
             establishmentName: invitation.establishment_name,
             sessionName: invitation.session_name,
+            cohortName: invitation.cohort_name,
         };
     }
     async acceptInvitation(invitationId, userId, userEmail, ipAddress, userAgent) {
@@ -176,17 +181,20 @@ export class InvitationRepository {
         i.usage_limit,
         i.usage_count,
         i.session_id,
+        i.cohort_id,
         i.message,
         i.expires_at,
         i.created_at,
         i.updated_at,
         e.name as establishment_name,
         ct.title as session_name,
+        coh.name as cohort_name,
         u.first_name || ' ' || u.last_name as created_by_name
       FROM invitations i
       LEFT JOIN establishments e ON i.establishment_id = e.id
       LEFT JOIN class_sessions cs ON i.session_id = cs.id
       LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+      LEFT JOIN cohorts coh ON i.cohort_id = coh.id
       LEFT JOIN users u ON i.created_by = u.id
       WHERE ${whereClause}
       ORDER BY i.created_at DESC
@@ -196,6 +204,7 @@ export class InvitationRepository {
             ...this.mapRowToInvitation(row),
             establishmentName: row.establishment_name,
             sessionName: row.session_name,
+            cohortName: row.cohort_name,
         }));
     }
     async revokeInvitation(invitationId, revokedBy) {
@@ -368,6 +377,7 @@ export class InvitationRepository {
             status: row.status,
             token: row.token,
             sessionId: row.session_id,
+            cohortId: row.cohort_id,
             message: row.message,
             usageLimit: parseInt(row.usage_limit),
             usageCount: parseInt(row.usage_count),

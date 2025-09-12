@@ -9,8 +9,12 @@ import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
 import Joi from "joi";
 const createClassTemplateSchema = Joi.object({
     title: Joi.string().min(3).max(255).required(),
-    classType: Joi.string().valid('ballet', 'pilates', 'barre', 'yoga', 'contemporary', 'jazz', 'modern').required(),
-    skillLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'all_levels').required(),
+    classType: Joi.string()
+        .valid("ballet", "pilates", "barre", "yoga", "contemporary", "jazz", "modern")
+        .required(),
+    skillLevel: Joi.string()
+        .valid("beginner", "intermediate", "advanced", "all_levels")
+        .required(),
     instructorId: Joi.string().uuid().optional(),
     capacity: Joi.number().integer().min(1).max(50).required(),
     durationMinutes: Joi.number().integer().min(15).max(180).required(),
@@ -19,8 +23,12 @@ const createClassTemplateSchema = Joi.object({
 });
 const updateClassTemplateSchema = Joi.object({
     title: Joi.string().min(3).max(255).optional(),
-    classType: Joi.string().valid('ballet', 'pilates', 'barre', 'yoga', 'contemporary', 'jazz', 'modern').optional(),
-    skillLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'all_levels').optional(),
+    classType: Joi.string()
+        .valid("ballet", "pilates", "barre", "yoga", "contemporary", "jazz", "modern")
+        .optional(),
+    skillLevel: Joi.string()
+        .valid("beginner", "intermediate", "advanced", "all_levels")
+        .optional(),
     instructorId: Joi.string().uuid().allow(null).optional(),
     capacity: Joi.number().integer().min(1).max(50).optional(),
     durationMinutes: Joi.number().integer().min(15).max(180).optional(),
@@ -29,33 +37,45 @@ const updateClassTemplateSchema = Joi.object({
     isActive: Joi.boolean().optional(),
 });
 const createClassSessionSchema = Joi.object({
-    classTemplateId: Joi.string().uuid().optional(),
-    instructorId: Joi.string().uuid().optional(),
-    sessionDate: Joi.date().iso().min('now').required(),
-    startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-    endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-    capacity: Joi.number().integer().min(1).max(50).optional(),
+    sessionDate: Joi.date().iso().min("now").required(),
+    cohortId: Joi.string().uuid().required(),
+    startTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .required(),
+    endTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .optional(),
+    override_instructor_id: Joi.string().uuid().allow(null).optional(),
     notes: Joi.string().max(500).optional(),
-    isRecurring: Joi.boolean().optional(),
-    recurrenceFrequency: Joi.string().valid('weekly', 'biweekly', 'monthly', 'daily').optional(),
-    recurrenceDaysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).optional(),
-    recurrenceEndDate: Joi.date().iso().min(Joi.ref('sessionDate')).optional(),
 });
 const updateClassSessionSchema = Joi.object({
     instructorId: Joi.string().uuid().allow(null).optional(),
     sessionDate: Joi.date().iso().optional(),
-    startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-    endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+    startTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .optional(),
+    endTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .optional(),
     capacity: Joi.number().integer().min(1).max(50).optional(),
-    status: Joi.string().valid('scheduled', 'in_progress', 'completed', 'cancelled').optional(),
+    status: Joi.string()
+        .valid("scheduled", "in_progress", "completed", "cancelled")
+        .optional(),
     notes: Joi.string().max(500).allow(null).optional(),
 });
 const generateSessionsSchema = Joi.object({
-    startDate: Joi.date().iso().min('now').required(),
-    endDate: Joi.date().iso().min(Joi.ref('startDate')).required(),
-    daysOfWeek: Joi.array().items(Joi.number().integer().min(0).max(6)).min(1).required(),
-    startTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-    endTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+    startDate: Joi.date().iso().min("now").required(),
+    endDate: Joi.date().iso().min(Joi.ref("startDate")).required(),
+    daysOfWeek: Joi.array()
+        .items(Joi.number().integer().min(0).max(6))
+        .min(1)
+        .required(),
+    startTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .required(),
+    endTime: Joi.string()
+        .pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
+        .optional(),
     instructorId: Joi.string().uuid().optional(),
     capacity: Joi.number().integer().min(1).max(50).optional(),
 });
@@ -116,9 +136,9 @@ const createClassesRoutes = (db, logger, tokenService, authRepository, passwordS
     router.get("/sessions", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getSessions);
     router.get("/sessions/upcoming", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getUpcomingSessions);
     router.get("/sessions/:id", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getSession);
-    router.post("/sessions", classCreationRateLimit, authMiddleware.requireEstablishmentAccess(["manager"]), ValidationMiddleware.validate(createClassSessionSchema), controller.createSession);
-    router.put("/sessions/:id", classCreationRateLimit, authMiddleware.requireEstablishmentAccess(["manager"]), ValidationMiddleware.validate(updateClassSessionSchema), controller.updateSession);
-    router.post("/sessions/:id/cancel", authMiddleware.requireEstablishmentAccess(["manager"]), controller.cancelSession);
+    router.post("/sessions", classCreationRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(createClassSessionSchema), controller.createSession);
+    router.put("/sessions/:id", classCreationRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(updateClassSessionSchema), controller.updateSession);
+    router.post("/sessions/:id/cancel", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.cancelSession);
     router.get("/sessions/:id/enrollments", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getSessionEnrollments);
     router.post("/sessions/:id/enroll", enrollmentRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(enrollStudentsSchema), controller.enrollStudents);
     router.delete("/sessions/:id/enroll/:studentId", enrollmentRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.removeStudent);
@@ -141,6 +161,7 @@ const createClassesRoutes = (db, logger, tokenService, authRepository, passwordS
             code: "INTERNAL_ERROR",
         });
     });
+    router.get("/dropdown-data", controller.getDropdownData.bind(controller));
     return router;
 };
 export default createClassesRoutes;

@@ -24,6 +24,7 @@ export declare class InvitationController {
     constructor(invitationService: InvitationService, logger: LoggerService);
     private getClientIp;
     createStudentInvitation(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void>;
+    createCohortInvitation(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void>;
     inviteInstructor(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void>;
     getInvitations(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void>;
     getInvitationUsage(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void>;

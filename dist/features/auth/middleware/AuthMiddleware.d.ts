@@ -10,6 +10,13 @@ interface AuthenticatedRequest extends Request {
         email: string;
         establishments: Establishment[] | undefined;
     };
+    establishment?: {
+        id: string;
+        name: string;
+        role: string;
+        isPrimary: boolean;
+        status: string;
+    };
 }
 export declare class AuthMiddleware {
     private tokenService;
