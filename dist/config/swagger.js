@@ -9,7 +9,7 @@ const options = {
         },
         servers: [
             {
-                url: 'http://localhost:8001/api/v1',
+                url: 'http://localhost:8000/api/v1',
                 description: 'Development server',
             },
         ],
@@ -865,56 +865,66 @@ const options = {
                 CreatePayment: {
                     type: 'object',
                     required: [
-                        'student_id',
                         'amount',
-                        'payment_method',
-                        'payment_type',
-                        'payment_date',
+                        'paymentMethod',
+                        'paymentType',
+                        'paymentDate',
                     ],
                     properties: {
-                        student_id: {
+                        studentId: {
                             type: 'string',
                             format: 'uuid',
+                            description: 'Student ID (optional for establishment-wide payments)'
                         },
-                        student_package_id: {
+                        studentPackageId: {
                             type: 'string',
                             format: 'uuid',
+                            description: 'Student package ID if payment is for a specific package'
                         },
                         amount: {
                             type: 'number',
                             format: 'float',
-                            minimum: 0,
+                            minimum: 0.01,
+                            description: 'Payment amount'
                         },
-                        payment_method: {
+                        paymentMethod: {
                             type: 'string',
-                            enum: ['cash', 'card', 'bank_transfer'],
+                            enum: ['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'online'],
+                            description: 'Method of payment'
                         },
-                        payment_type: {
+                        paymentType: {
                             type: 'string',
-                            enum: ['monthly', '8-class', 'drop-in', 'makeup'],
+                            enum: ['class_package', 'monthly_fee', 'registration', 'late_fee', 'refund', 'other'],
+                            description: 'Type/purpose of payment'
                         },
-                        payment_date: {
+                        paymentDate: {
                             type: 'string',
                             format: 'date',
+                            description: 'Date when payment was made'
                         },
-                        due_date: {
+                        dueDate: {
                             type: 'string',
                             format: 'date',
+                            description: 'Payment due date (optional)'
                         },
                         description: {
                             type: 'string',
+                            maxLength: 500,
+                            description: 'Additional payment description'
                         },
-                        recorded_by: {
+                        transactionId: {
                             type: 'string',
-                            format: 'uuid',
-                        },
+                            maxLength: 100,
+                            description: 'External transaction ID for reference'
+                        }
                     },
                     example: {
-                        student_id: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
-                        amount: 100.00,
-                        payment_method: 'card',
-                        payment_type: 'monthly',
-                        payment_date: '2024-08-01',
+                        studentId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+                        amount: 150.00,
+                        paymentMethod: 'credit_card',
+                        paymentType: 'monthly_fee',
+                        paymentDate: '2024-09-25',
+                        description: 'Monthly payment for October classes'
                     },
                 },
                 UpdatePayment: {
@@ -923,32 +933,44 @@ const options = {
                         amount: {
                             type: 'number',
                             format: 'float',
-                            minimum: 0,
+                            minimum: 0.01,
+                            description: 'Updated payment amount'
                         },
-                        payment_method: {
+                        paymentMethod: {
                             type: 'string',
-                            enum: ['cash', 'card', 'bank_transfer'],
+                            enum: ['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'online'],
+                            description: 'Updated payment method'
                         },
-                        payment_type: {
+                        paymentType: {
                             type: 'string',
-                            enum: ['monthly', '8-class', 'drop-in', 'makeup'],
+                            enum: ['class_package', 'monthly_fee', 'registration', 'late_fee', 'refund', 'other'],
+                            description: 'Updated payment type'
                         },
-                        payment_date: {
+                        paymentDate: {
                             type: 'string',
                             format: 'date',
+                            description: 'Updated payment date'
                         },
-                        due_date: {
+                        dueDate: {
                             type: 'string',
                             format: 'date',
+                            description: 'Updated payment due date'
                         },
                         description: {
                             type: 'string',
+                            maxLength: 500,
+                            description: 'Updated payment description'
                         },
+                        transactionId: {
+                            type: 'string',
+                            maxLength: 100,
+                            description: 'Updated transaction ID'
+                        }
                     },
                     example: {
-                        amount: 120.00,
-                        payment_method: 'bank_transfer',
-                        description: 'Updated payment for August',
+                        amount: 175.00,
+                        paymentMethod: 'bank_transfer',
+                        description: 'Updated monthly payment for October',
                     },
                 },
                 CreateStudentPackage: {
@@ -1252,6 +1274,441 @@ const options = {
                         message: {
                             type: 'string',
                             example: 'Valid invitation'
+                        }
+                    }
+                },
+                CreatePaymentPlan: {
+                    type: 'object',
+                    required: [
+                        'name',
+                        'amount',
+                        'planType',
+                        'recurrenceType'
+                    ],
+                    properties: {
+                        name: {
+                            type: 'string',
+                            maxLength: 100,
+                            description: 'Name of the payment plan'
+                        },
+                        description: {
+                            type: 'string',
+                            maxLength: 500,
+                            description: 'Description of the payment plan'
+                        },
+                        amount: {
+                            type: 'number',
+                            format: 'float',
+                            minimum: 0.01,
+                            description: 'Amount for each payment'
+                        },
+                        planType: {
+                            type: 'string',
+                            enum: ['individual', 'cohort', 'establishment'],
+                            description: 'Type of payment plan assignment'
+                        },
+                        recurrenceType: {
+                            type: 'string',
+                            enum: ['one_time', 'weekly', 'monthly', 'yearly'],
+                            description: 'How often payments are generated'
+                        }
+                    },
+                    example: {
+                        name: 'Monthly Ballet Fees',
+                        description: 'Monthly tuition for ballet classes',
+                        amount: 150.00,
+                        planType: 'cohort',
+                        recurrenceType: 'monthly'
+                    }
+                },
+                CreateAssignment: {
+                    type: 'object',
+                    required: [
+                        'paymentPlanId',
+                        'targetType',
+                        'startDate'
+                    ],
+                    properties: {
+                        paymentPlanId: {
+                            type: 'string',
+                            format: 'uuid',
+                            description: 'ID of the payment plan to assign'
+                        },
+                        targetType: {
+                            type: 'string',
+                            enum: ['student', 'cohort', 'establishment'],
+                            description: 'Type of target to assign to'
+                        },
+                        targetId: {
+                            type: 'string',
+                            format: 'uuid',
+                            description: 'ID of the target (required for student/cohort, null for establishment)'
+                        },
+                        startDate: {
+                            type: 'string',
+                            format: 'date',
+                            description: 'Start date for the assignment'
+                        },
+                        endDate: {
+                            type: 'string',
+                            format: 'date',
+                            description: 'End date for the assignment (optional)'
+                        }
+                    },
+                    example: {
+                        paymentPlanId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+                        targetType: 'cohort',
+                        targetId: 'b2c3d4e5-f6a7-8901-2345-678901bcdef2',
+                        startDate: '2024-10-01'
+                    }
+                },
+                BulkPaymentRequest: {
+                    type: 'object',
+                    required: [
+                        'paymentPlanId',
+                        'targetIds',
+                        'paymentDate',
+                        'paymentMethod'
+                    ],
+                    properties: {
+                        paymentPlanId: {
+                            type: 'string',
+                            format: 'uuid',
+                            description: 'Payment plan to use for bulk processing'
+                        },
+                        targetIds: {
+                            type: 'array',
+                            items: {
+                                type: 'string',
+                                format: 'uuid'
+                            },
+                            description: 'Array of student IDs or cohort IDs to process'
+                        },
+                        paymentDate: {
+                            type: 'string',
+                            format: 'date',
+                            description: 'Date for all payments'
+                        },
+                        paymentMethod: {
+                            type: 'string',
+                            enum: ['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'online'],
+                            description: 'Payment method for all payments'
+                        },
+                        notes: {
+                            type: 'string',
+                            maxLength: 500,
+                            description: 'Additional notes for bulk payment'
+                        }
+                    },
+                    example: {
+                        paymentPlanId: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+                        targetIds: ['student1-uuid', 'student2-uuid', 'student3-uuid'],
+                        paymentDate: '2024-10-01',
+                        paymentMethod: 'bank_transfer',
+                        notes: 'Monthly payments for October'
+                    }
+                },
+                RefundPaymentRequest: {
+                    type: 'object',
+                    required: [
+                        'refundAmount',
+                        'refundDate'
+                    ],
+                    properties: {
+                        refundAmount: {
+                            type: 'number',
+                            format: 'float',
+                            minimum: 0.01,
+                            description: 'Amount to refund (must not exceed original payment)'
+                        },
+                        refundDate: {
+                            type: 'string',
+                            format: 'date',
+                            description: 'Date when refund was processed'
+                        },
+                        reason: {
+                            type: 'string',
+                            maxLength: 500,
+                            description: 'Reason for the refund'
+                        }
+                    },
+                    example: {
+                        refundAmount: 50.00,
+                        refundDate: '2024-09-25',
+                        reason: 'Student cancelled after first class'
+                    }
+                },
+                Payment: {
+                    type: 'object',
+                    properties: {
+                        id: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        establishmentId: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        studentId: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        studentName: {
+                            type: 'string',
+                            description: 'Student name (populated from join)'
+                        },
+                        studentPackageId: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        amount: {
+                            type: 'number',
+                            format: 'float'
+                        },
+                        paymentMethod: {
+                            type: 'string',
+                            enum: ['cash', 'credit_card', 'debit_card', 'bank_transfer', 'check', 'online']
+                        },
+                        paymentType: {
+                            type: 'string',
+                            enum: ['class_package', 'monthly_fee', 'registration', 'late_fee', 'refund', 'other']
+                        },
+                        paymentDate: {
+                            type: 'string',
+                            format: 'date'
+                        },
+                        dueDate: {
+                            type: 'string',
+                            format: 'date'
+                        },
+                        description: {
+                            type: 'string'
+                        },
+                        recordedBy: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        recordedByName: {
+                            type: 'string',
+                            description: 'Name of user who recorded payment'
+                        },
+                        transactionId: {
+                            type: 'string'
+                        },
+                        isRefunded: {
+                            type: 'boolean'
+                        },
+                        refundAmount: {
+                            type: 'number',
+                            format: 'float'
+                        },
+                        refundDate: {
+                            type: 'string',
+                            format: 'date'
+                        },
+                        createdAt: {
+                            type: 'string',
+                            format: 'date-time'
+                        }
+                    }
+                },
+                PaymentPlan: {
+                    type: 'object',
+                    properties: {
+                        id: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        establishmentId: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        name: {
+                            type: 'string'
+                        },
+                        description: {
+                            type: 'string'
+                        },
+                        amount: {
+                            type: 'number',
+                            format: 'float'
+                        },
+                        planType: {
+                            type: 'string',
+                            enum: ['individual', 'cohort', 'establishment']
+                        },
+                        recurrenceType: {
+                            type: 'string',
+                            enum: ['one_time', 'weekly', 'monthly', 'yearly']
+                        },
+                        createdBy: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        createdByName: {
+                            type: 'string',
+                            description: 'Name of user who created the plan'
+                        },
+                        isActive: {
+                            type: 'boolean'
+                        },
+                        totalAssignments: {
+                            type: 'integer',
+                            description: 'Total number of assignments'
+                        },
+                        activeAssignments: {
+                            type: 'integer',
+                            description: 'Number of active assignments'
+                        },
+                        createdAt: {
+                            type: 'string',
+                            format: 'date-time'
+                        }
+                    }
+                },
+                PaymentSummary: {
+                    type: 'object',
+                    properties: {
+                        establishmentId: {
+                            type: 'string',
+                            format: 'uuid'
+                        },
+                        totalRevenue: {
+                            type: 'number',
+                            format: 'float',
+                            description: 'Total revenue for the period'
+                        },
+                        totalPayments: {
+                            type: 'integer',
+                            description: 'Number of payments made'
+                        },
+                        pendingAmount: {
+                            type: 'number',
+                            format: 'float',
+                            description: 'Amount of pending payments'
+                        },
+                        refundedAmount: {
+                            type: 'number',
+                            format: 'float',
+                            description: 'Total amount refunded'
+                        },
+                        paymentMethods: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    method: {
+                                        type: 'string'
+                                    },
+                                    total: {
+                                        type: 'number',
+                                        format: 'float'
+                                    },
+                                    count: {
+                                        type: 'integer'
+                                    }
+                                }
+                            }
+                        },
+                        paymentTypes: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    type: {
+                                        type: 'string'
+                                    },
+                                    total: {
+                                        type: 'number',
+                                        format: 'float'
+                                    },
+                                    count: {
+                                        type: 'integer'
+                                    }
+                                }
+                            }
+                        },
+                        recentPayments: {
+                            type: 'array',
+                            items: {
+                                $ref: '#/components/schemas/Payment'
+                            }
+                        }
+                    }
+                },
+                PaymentResponse: {
+                    type: 'object',
+                    properties: {
+                        success: {
+                            type: 'boolean'
+                        },
+                        data: {
+                            type: 'object'
+                        },
+                        message: {
+                            type: 'string'
+                        },
+                        error: {
+                            type: 'object',
+                            properties: {
+                                code: {
+                                    type: 'string'
+                                },
+                                message: {
+                                    type: 'string'
+                                },
+                                details: {
+                                    type: 'object'
+                                }
+                            }
+                        }
+                    }
+                },
+                PaginatedPaymentResponse: {
+                    type: 'object',
+                    properties: {
+                        success: {
+                            type: 'boolean'
+                        },
+                        data: {
+                            type: 'array',
+                            items: {
+                                type: 'object'
+                            }
+                        },
+                        pagination: {
+                            type: 'object',
+                            properties: {
+                                total: {
+                                    type: 'integer'
+                                },
+                                page: {
+                                    type: 'integer'
+                                },
+                                limit: {
+                                    type: 'integer'
+                                },
+                                totalPages: {
+                                    type: 'integer'
+                                }
+                            }
+                        },
+                        message: {
+                            type: 'string'
+                        },
+                        error: {
+                            type: 'object',
+                            properties: {
+                                code: {
+                                    type: 'string'
+                                },
+                                message: {
+                                    type: 'string'
+                                },
+                                details: {
+                                    type: 'object'
+                                }
+                            }
                         }
                     }
                 },

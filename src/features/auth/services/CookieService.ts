@@ -25,7 +25,7 @@ export class CookieService {
     this.config = {
       domain: config.domain,
       secure: config.secure ?? process.env.NODE_ENV === "production",
-      sameSite: config.sameSite ?? "strict",
+      sameSite: config.sameSite ?? "lax", // Changed from "strict" to "lax" to allow cookies on retried requests
       accessTokenExpiry: config.accessTokenExpiry,
       refreshTokenExpiry: config.refreshTokenExpiry,
     };

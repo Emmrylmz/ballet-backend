@@ -68,9 +68,18 @@ export class AuthMiddleware {
         // Get access token from cookies
         const accessToken = this.cookieService.getAccessTokenFromCookies(req);
 
+        console.log(`🔍 [${req.method}] ${req.path} - Access token: ${accessToken ? 'FOUND' : 'MISSING'}`);
+
         if (!accessToken) {
+          console.log(`❌ No access token for ${req.path}. Cookies:`, Object.keys(req.cookies || {}));
           this.logger.debug(
-            "No access token found in cookies or Authorization header"
+            "No access token found in cookies or Authorization header",
+            {
+              path: req.path,
+              method: req.method,
+              hasCookies: !!req.cookies,
+              cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+            }
           );
           clearTimeout(timeoutId);
           this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
@@ -80,23 +89,47 @@ export class AuthMiddleware {
         // Verify access token - this is synchronous and should not hang
         const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
 
+        if (process.env.NODE_ENV !== 'production' && accessToken) {
+          // Log first 20 chars of token for debugging (not full token for security)
+          this.logger.debug("Verifying access token", {
+            path: req.path,
+            tokenPreview: accessToken.substring(0, 20) + "...",
+            isValid: !!tokenPayload
+          });
+        }
+
         if (!tokenPayload) {
-          this.logger.debug("Invalid access token from cookies");
+          console.log(`⚠️ Invalid access token for ${req.path} - attempting AUTO-REFRESH`);
+          this.logger.debug("Invalid access token from cookies - attempting auto-refresh", {
+            path: req.path,
+            method: req.method
+          });
 
           try {
             // Try to refresh token if available - wrap in timeout
             const refreshResult = await Promise.race([
               this.attemptTokenRefresh(req, res),
-              new Promise<{ success: boolean }>((_, reject) => 
+              new Promise<{ success: boolean }>((_, reject) =>
                 setTimeout(() => reject(new Error("Token refresh timeout")), 8000)
               )
             ]);
 
             if (!refreshResult || !refreshResult.success) {
+              console.log(`❌ Auto-refresh FAILED for ${req.path}`);
+              this.logger.debug("Auto-refresh failed", {
+                path: req.path,
+                refreshResult
+              });
               clearTimeout(timeoutId);
               this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
               return;
             }
+
+            console.log(`✅ Auto-refresh SUCCEEDED for ${req.path} - request will proceed`);
+            this.logger.debug("Auto-refresh succeeded, request will proceed", {
+              path: req.path,
+              userId: refreshResult.user?.id
+            });
 
             // Use the new token payload and user data
             req.user = refreshResult.user;
@@ -104,7 +137,11 @@ export class AuthMiddleware {
             next();
             return;
           } catch (refreshError) {
-            this.logger.error("Token refresh failed", { error: refreshError });
+            console.log(`❌ Auto-refresh ERROR for ${req.path}:`, refreshError);
+            this.logger.error("Token refresh failed in middleware", {
+              error: refreshError,
+              path: req.path
+            });
             clearTimeout(timeoutId);
             this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
             return;
@@ -158,7 +195,7 @@ export class AuthMiddleware {
     };
   }
 
-  requireRoles(...roles: UserRole[]) {
+  requireRoles(roles: UserRole[]) {
     return (
       req: AuthenticatedRequest,
       res: Response,
@@ -169,7 +206,48 @@ export class AuthMiddleware {
         return;
       }
 
-      // For now, just allow all authenticated users - role checking not fully implemented
+      // Get establishment ID from header
+      const establishmentId = req.headers['x-establishment-id'] as string;
+
+      if (!establishmentId) {
+        res.status(400).json({
+          success: false,
+          message: 'Establishment ID required in X-Establishment-ID header'
+        });
+        return;
+      }
+
+      // Find the user's role for this establishment
+      const establishment = req.user.establishments?.find(
+        (est) => est.id === establishmentId
+      );
+
+      if (!establishment) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have access to this establishment'
+        });
+        return;
+      }
+
+      // Check if user's role for this establishment is in the allowed roles
+      if (!roles.includes(establishment.role as UserRole)) {
+        this.logger.warn('Role authorization failed', {
+          userId: req.user.id,
+          userRole: establishment.role,
+          requiredRoles: roles,
+          establishmentId
+        });
+
+        res.status(403).json({
+          success: false,
+          message: `Insufficient permissions: This action requires one of the following roles: ${roles.join(', ')}`
+        });
+        return;
+      }
+
+      // Update establishment context with the correct role
+      req.establishment = establishment as any;
       next();
     };
   }
@@ -445,22 +523,27 @@ export class AuthMiddleware {
     res: Response
   ): Promise<{ success: boolean; user?: any }> {
     try {
+      console.log(`🔄 Attempting auto-refresh for ${req.path}`);
       const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
 
       if (!refreshToken) {
+        console.log(`❌ No refresh token found in cookies`);
         this.logger.debug("No refresh token available for token refresh");
         return { success: false };
       }
 
+      console.log(`✅ Refresh token found, verifying...`);
+
       // Add timeout to refresh token verification
       const refreshPayload = await Promise.race([
         this.tokenService.verifyRefreshToken(refreshToken),
-        new Promise<any>((_, reject) => 
+        new Promise<any>((_, reject) =>
           setTimeout(() => reject(new Error("Refresh token verification timeout")), 3000)
         )
       ]);
 
       if (!refreshPayload) {
+        console.log(`❌ Invalid refresh token`);
         this.logger.debug("Invalid refresh token for token refresh");
         try {
           this.cookieService.clearAllAuthCookies(res);
@@ -470,15 +553,18 @@ export class AuthMiddleware {
         return { success: false };
       }
 
+      console.log(`✅ Refresh token valid, looking up user ${refreshPayload.sub}`);
+
       // Add timeout to user lookup
       const user = await Promise.race([
         this.authRepository.findUserById(refreshPayload.sub),
-        new Promise<any>((_, reject) => 
+        new Promise<any>((_, reject) =>
           setTimeout(() => reject(new Error("User lookup timeout")), 3000)
         )
       ]);
 
       if (!user || user.status !== "active") {
+        console.log(`❌ User not found or inactive: ${refreshPayload.sub}`);
         this.logger.warn("User not found or inactive during token refresh", {
           userId: refreshPayload.sub,
         });
@@ -490,6 +576,8 @@ export class AuthMiddleware {
         return { success: false };
       }
 
+      console.log(`✅ User found, generating new token pair`);
+
       // Add timeout to token generation
       const newTokenPair = await Promise.race([
         this.tokenService.generateTokenPair(
@@ -497,10 +585,12 @@ export class AuthMiddleware {
           user.email,
           user.establishments
         ),
-        new Promise<any>((_, reject) => 
+        new Promise<any>((_, reject) =>
           setTimeout(() => reject(new Error("Token generation timeout")), 3000)
         )
       ]);
+
+      console.log(`✅ New tokens generated, setting cookies`);
 
       // Revoke old refresh token in background - don't wait for it
       this.tokenService.revokeRefreshToken(refreshToken).catch(error => {
@@ -514,7 +604,9 @@ export class AuthMiddleware {
           newTokenPair.accessToken,
           newTokenPair.refreshToken
         );
+        console.log(`✅ NEW COOKIES SET via auto-refresh`);
       } catch (cookieError) {
+        console.log(`❌ Failed to set new cookies:`, cookieError);
         this.logger.error("Failed to set new token cookies", { cookieError });
         return { success: false };
       }

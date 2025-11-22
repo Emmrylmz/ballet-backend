@@ -1,6 +1,6 @@
-import { LoggerService } from '../../services/LoggerService.js';
-import { AttendanceRepository } from './attendance.repository.js';
-import { AttendanceRecord, SessionRoster, AttendanceFilters, StudentAttendanceHistory, SessionAttendanceStats, MarkAttendanceRequest, UpdateAttendanceRequest, BulkAttendanceRequest, AttendanceStatus } from './attendance.types.js';
+import { LoggerService } from "../../services/LoggerService.js";
+import { AttendanceRepository } from "./attendance.repository.js";
+import { AttendanceRecord, SessionRoster, AttendanceFilters, StudentAttendanceHistory, SessionAttendanceStats, MarkAttendanceRequest, UpdateAttendanceRequest, BulkAttendanceRequest, AttendanceStatus } from "./attendance.types.js";
 export declare class AttendanceService {
     private attendanceRepository;
     private logger;
@@ -18,7 +18,7 @@ export declare class AttendanceService {
     private validateAttendanceMarking;
     private getStatusBreakdown;
     calculateAttendanceRate(present: number, late: number, total: number): number;
-    categorizeAttendanceRate(rate: number): 'excellent' | 'good' | 'needs_improvement' | 'concerning';
+    categorizeAttendanceRate(rate: number): "excellent" | "good" | "needs_improvement" | "concerning";
     getAttendanceTrends(establishmentId: string, filters: {
         startDate?: string;
         endDate?: string;

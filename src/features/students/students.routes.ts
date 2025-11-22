@@ -42,7 +42,7 @@ const updateStudentSchema = Joi.object({
 });
 
 const searchStudentsSchema = Joi.object({
-  q: Joi.string().max(100).optional(),
+  q: Joi.string().max(100).allow('').optional(),
   status: Joi.string().valid("active", "inactive", "all").default("active"),
   cohortId: Joi.string().uuid().optional(),
   available: Joi.boolean().optional(),
@@ -192,6 +192,7 @@ const createStudentsRoutes = (
    */
   router.get(
     "/search",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validateQuery(searchStudentsSchema),
     controller.searchStudents
@@ -233,6 +234,7 @@ const createStudentsRoutes = (
    */
   router.get(
     "/stats",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager"]),
     controller.getStudentsStats
   );
@@ -282,6 +284,7 @@ const createStudentsRoutes = (
    */
   router.get(
     "/:id",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     controller.getStudentProfile
   );
@@ -378,6 +381,7 @@ const createStudentsRoutes = (
    */
   router.post(
     "/",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager"]),
     ValidationMiddleware.validate(createStudentSchema),
     controller.createStudent
@@ -473,6 +477,7 @@ const createStudentsRoutes = (
    */
   router.put(
     "/:id",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validate(updateStudentSchema),
     controller.updateStudent
@@ -512,6 +517,7 @@ const createStudentsRoutes = (
    */
   router.delete(
     "/:id",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager"]),
     controller.deactivateStudent
   );
@@ -561,6 +567,7 @@ const createStudentsRoutes = (
    */
   router.get(
     "/sessions/:sessionId/roster",
+    authMiddleware.authenticate(),
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     controller.getSessionRoster
   );

@@ -13,33 +13,55 @@ export class AuthMiddleware {
     }
     authenticate() {
         return async (req, res, next) => {
+            const timeoutId = setTimeout(() => {
+                if (!res.headersSent) {
+                    this.logger.error("Authentication middleware timeout");
+                    this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+                }
+            }, 10000);
             try {
                 if (!this.cookieService) {
                     this.logger.error("CookieService not initialized in AuthMiddleware");
+                    clearTimeout(timeoutId);
                     this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
                     return;
                 }
                 if (!req.cookies || typeof req.cookies !== "object") {
+                    clearTimeout(timeoutId);
                     this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
                 const accessToken = this.cookieService.getAccessTokenFromCookies(req);
                 if (!accessToken) {
                     this.logger.debug("No access token found in cookies or Authorization header");
+                    clearTimeout(timeoutId);
                     this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_REQUIRED);
                     return;
                 }
                 const tokenPayload = this.tokenService.verifyAccessToken(accessToken);
                 if (!tokenPayload) {
                     this.logger.debug("Invalid access token from cookies");
-                    const refreshResult = await this.attemptTokenRefresh(req, res);
-                    if (!refreshResult || !refreshResult.success) {
+                    try {
+                        const refreshResult = await Promise.race([
+                            this.attemptTokenRefresh(req, res),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error("Token refresh timeout")), 8000))
+                        ]);
+                        if (!refreshResult || !refreshResult.success) {
+                            clearTimeout(timeoutId);
+                            this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
+                            return;
+                        }
+                        req.user = refreshResult.user;
+                        clearTimeout(timeoutId);
+                        next();
+                        return;
+                    }
+                    catch (refreshError) {
+                        this.logger.error("Token refresh failed", { error: refreshError });
+                        clearTimeout(timeoutId);
                         this.sendUnauthorized(res, AUTH_ERRORS.INVALID_TOKEN);
                         return;
                     }
-                    req.user = refreshResult.user;
-                    next();
-                    return;
                 }
                 req.user = {
                     id: tokenPayload.sub,
@@ -51,11 +73,11 @@ export class AuthMiddleware {
                         tokenPayload.establishments?.[0];
                 const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
                 if (refreshToken) {
-                    const ipAddress = this.getClientIp(req);
-                    const userAgent = req.get("User-Agent") || "Unknown";
-                    const tokenHash = this.hashToken(refreshToken);
-                    await this.tokenService.updateSessionInfo(tokenHash, ipAddress, userAgent);
+                    this.updateSessionInfoAsync(refreshToken, req).catch(error => {
+                        this.logger.error("Session info update failed", { error });
+                    });
                 }
+                clearTimeout(timeoutId);
                 next();
             }
             catch (error) {
@@ -72,7 +94,10 @@ export class AuthMiddleware {
                         ? JSON.stringify(error, Object.getOwnPropertyNames(error))
                         : null,
                 });
-                this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+                clearTimeout(timeoutId);
+                if (!res.headersSent) {
+                    this.sendUnauthorized(res, AUTH_ERRORS.TOKEN_VERIFICATION_FAILED);
+                }
             }
         };
     }
@@ -245,6 +270,20 @@ export class AuthMiddleware {
             next();
         };
     }
+    async updateSessionInfoAsync(refreshToken, req) {
+        try {
+            const ipAddress = this.getClientIp(req);
+            const userAgent = req.get("User-Agent") || "Unknown";
+            const tokenHash = this.hashToken(refreshToken);
+            await Promise.race([
+                this.tokenService.updateSessionInfo(tokenHash, ipAddress, userAgent),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Session update timeout")), 5000))
+            ]);
+        }
+        catch (error) {
+            this.logger.error("Session info background update failed", { error });
+        }
+    }
     async attemptTokenRefresh(req, res) {
         try {
             const refreshToken = this.cookieService.getRefreshTokenFromCookies(req);
@@ -252,23 +291,50 @@ export class AuthMiddleware {
                 this.logger.debug("No refresh token available for token refresh");
                 return { success: false };
             }
-            const refreshPayload = await this.tokenService.verifyRefreshToken(refreshToken);
+            const refreshPayload = await Promise.race([
+                this.tokenService.verifyRefreshToken(refreshToken),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Refresh token verification timeout")), 3000))
+            ]);
             if (!refreshPayload) {
                 this.logger.debug("Invalid refresh token for token refresh");
-                this.cookieService.clearAllAuthCookies(res);
+                try {
+                    this.cookieService.clearAllAuthCookies(res);
+                }
+                catch (clearError) {
+                    this.logger.error("Failed to clear cookies", { clearError });
+                }
                 return { success: false };
             }
-            const user = await this.authRepository.findUserById(refreshPayload.sub);
+            const user = await Promise.race([
+                this.authRepository.findUserById(refreshPayload.sub),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("User lookup timeout")), 3000))
+            ]);
             if (!user || user.status !== "active") {
                 this.logger.warn("User not found or inactive during token refresh", {
                     userId: refreshPayload.sub,
                 });
-                this.cookieService.clearAllAuthCookies(res);
+                try {
+                    this.cookieService.clearAllAuthCookies(res);
+                }
+                catch (clearError) {
+                    this.logger.error("Failed to clear cookies", { clearError });
+                }
                 return { success: false };
             }
-            const newTokenPair = await this.tokenService.generateTokenPair(user.id, user.email, user.establishments);
-            await this.tokenService.revokeRefreshToken(refreshToken);
-            this.cookieService.setTokenCookies(res, newTokenPair.accessToken, newTokenPair.refreshToken);
+            const newTokenPair = await Promise.race([
+                this.tokenService.generateTokenPair(user.id, user.email, user.establishments),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Token generation timeout")), 3000))
+            ]);
+            this.tokenService.revokeRefreshToken(refreshToken).catch(error => {
+                this.logger.error("Failed to revoke old refresh token", { error });
+            });
+            try {
+                this.cookieService.setTokenCookies(res, newTokenPair.accessToken, newTokenPair.refreshToken);
+            }
+            catch (cookieError) {
+                this.logger.error("Failed to set new token cookies", { cookieError });
+                return { success: false };
+            }
             this.logger.info("Token refreshed successfully via middleware", {
                 userId: user.id,
             });
@@ -300,11 +366,18 @@ export class AuthMiddleware {
         }
     }
     sendUnauthorized(res, message) {
-        res.status(401).json({
-            success: false,
-            message,
-            code: "UNAUTHORIZED",
-        });
+        try {
+            if (!res.headersSent) {
+                res.status(401).json({
+                    success: false,
+                    message,
+                    code: "UNAUTHORIZED",
+                });
+            }
+        }
+        catch (error) {
+            this.logger.error("Failed to send unauthorized response", { error });
+        }
     }
     hashToken(token) {
         return crypto.createHash("sha256").update(token).digest("hex");

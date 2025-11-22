@@ -1,5 +1,6 @@
 import { DatabaseService } from '../../services/DatabaseService.js';
 import { LoggerService } from '../../services/LoggerService.js';
+import { AuditLogService } from '../../services/AuditLogService.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
@@ -34,6 +35,7 @@ export class AuthFactory {
   createAuthModule(
     db: DatabaseService,
     logger: LoggerService,
+    auditLogService: AuditLogService,
     config: {
       accessTokenSecret: string;
       refreshTokenSecret: string;
@@ -88,6 +90,7 @@ export class AuthFactory {
       emailService,
       this.cookieService,
       logger,
+      auditLogService,
       {
         securitySettings: config.securitySettings,
         frontendUrl: config.frontendUrl,

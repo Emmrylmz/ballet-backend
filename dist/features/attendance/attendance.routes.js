@@ -1,113 +1,114 @@
-import { Router } from 'express';
-import { AuthMiddleware } from '../auth/middleware/AuthMiddleware.js';
-import { EstablishmentMiddleware } from '../../middleware/EstablishmentMiddleware.js';
-import { body, param, query, validationResult } from 'express-validator';
-const validationMiddleware = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        res.status(400).json({
-            success: false,
-            message: 'Validation failed',
-            errors: errors.array()
-        });
-        return;
-    }
-    next();
-};
-export default function createAttendanceRoutes(db, logger, tokenService, authRepository, passwordService, cookieService) {
-    const authMiddleware = new AuthMiddleware(tokenService, cookieService, authRepository, logger);
-    const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
-    const sessionIdValidation = [
-        param('sessionId').isUUID().withMessage('Session ID must be a valid UUID')
-    ];
-    const studentIdValidation = [
-        param('studentId').isUUID().withMessage('Student ID must be a valid UUID')
-    ];
-    const attendanceIdValidation = [
-        param('attendanceId').isUUID().withMessage('Attendance ID must be a valid UUID')
-    ];
-    const markAttendanceValidation = [
-        body('status')
-            .isIn(['present', 'late', 'absent', 'excused'])
-            .withMessage('Status must be one of: present, late, absent, excused'),
-        body('notes')
-            .optional()
-            .isString()
-            .isLength({ max: 1000 })
-            .withMessage('Notes must be a string with maximum 1000 characters')
-    ];
-    const bulkAttendanceValidation = [
-        body('attendanceRecords')
-            .isArray({ min: 1 })
-            .withMessage('Attendance records must be a non-empty array'),
-        body('attendanceRecords.*.studentId')
-            .isUUID()
-            .withMessage('Each record must have a valid student ID'),
-        body('attendanceRecords.*.status')
-            .isIn(['present', 'late', 'absent', 'excused'])
-            .withMessage('Each record must have a valid status'),
-        body('attendanceRecords.*.notes')
-            .optional()
-            .isString()
-            .isLength({ max: 500 })
-            .withMessage('Notes must be a string with maximum 500 characters')
-    ];
-    const updateAttendanceValidation = [
-        body('status')
-            .optional()
-            .isIn(['present', 'late', 'absent', 'excused'])
-            .withMessage('Status must be one of: present, late, absent, excused'),
-        body('notes')
-            .optional()
-            .isString()
-            .isLength({ max: 1000 })
-            .withMessage('Notes must be a string with maximum 1000 characters')
-    ];
-    const attendanceFiltersValidation = [
-        query('sessionId').optional().isUUID().withMessage('Session ID must be a valid UUID'),
-        query('studentId').optional().isUUID().withMessage('Student ID must be a valid UUID'),
-        query('instructorId').optional().isUUID().withMessage('Instructor ID must be a valid UUID'),
-        query('cohortId').optional().isUUID().withMessage('Cohort ID must be a valid UUID'),
-        query('status')
-            .optional()
-            .isIn(['present', 'late', 'absent', 'excused'])
-            .withMessage('Status must be one of: present, late, absent, excused'),
-        query('startDate')
-            .optional()
-            .isISO8601()
-            .withMessage('Start date must be in ISO 8601 format'),
-        query('endDate')
-            .optional()
-            .isISO8601()
-            .withMessage('End date must be in ISO 8601 format'),
-        query('limit')
-            .optional()
-            .isInt({ min: 1, max: 100 })
-            .withMessage('Limit must be between 1 and 100'),
-        query('offset')
-            .optional()
-            .isInt({ min: 0 })
-            .withMessage('Offset must be non-negative')
-    ];
-    return (attendanceController) => {
+import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { AuthMiddleware } from "../auth/middleware/AuthMiddleware.js";
+import { EstablishmentMiddleware } from "../../middleware/EstablishmentMiddleware.js";
+import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
+import Joi from "joi";
+const markAttendanceSchema = Joi.object({
+    status: Joi.string()
+        .valid("present", "late", "absent", "excused")
+        .required(),
+    notes: Joi.string().max(1000).optional(),
+});
+const updateAttendanceSchema = Joi.object({
+    status: Joi.string()
+        .valid("present", "late", "absent", "excused")
+        .optional(),
+    notes: Joi.string().max(1000).optional(),
+});
+const bulkAttendanceSchema = Joi.object({
+    attendanceRecords: Joi.array()
+        .items(Joi.object({
+        studentId: Joi.string().uuid().required(),
+        status: Joi.string()
+            .valid("present", "late", "absent", "excused")
+            .required(),
+        notes: Joi.string().max(500).optional(),
+    }))
+        .min(1)
+        .max(50)
+        .required(),
+});
+const attendanceFiltersSchema = Joi.object({
+    sessionId: Joi.string().uuid().optional(),
+    studentId: Joi.string().uuid().optional(),
+    instructorId: Joi.string().uuid().optional(),
+    cohortId: Joi.string().uuid().optional(),
+    status: Joi.string()
+        .valid("present", "late", "absent", "excused")
+        .optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().min(Joi.ref("startDate")).optional(),
+    limit: Joi.number().integer().min(1).max(100).default(50).optional(),
+    offset: Joi.number().integer().min(0).default(0).optional(),
+});
+const attendanceRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500,
+    message: {
+        success: false,
+        message: "Too many attendance operations, please try again later",
+        code: "ATTENDANCE_RATE_LIMIT_EXCEEDED",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+const bulkOperationRateLimit = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 50,
+    message: {
+        success: false,
+        message: "Too many bulk operations, please try again later",
+        code: "BULK_RATE_LIMIT_EXCEEDED",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+const generalRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    message: {
+        success: false,
+        message: "Too many requests, please try again later",
+        code: "RATE_LIMIT_EXCEEDED",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+const createAttendanceRoutes = (db, logger, tokenService, authRepository, passwordService, cookieService) => {
+    return (controller) => {
         const router = Router();
-        router.get('/sessions/:sessionId/roster', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), sessionIdValidation, validationMiddleware, attendanceController.getSessionRoster.bind(attendanceController));
-        router.post('/sessions/:sessionId/student/:studentId', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), [...sessionIdValidation, ...studentIdValidation, ...markAttendanceValidation], validationMiddleware, attendanceController.markAttendance.bind(attendanceController));
-        router.put('/sessions/:sessionId/bulk', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), [...sessionIdValidation, ...bulkAttendanceValidation], validationMiddleware, attendanceController.bulkMarkAttendance.bind(attendanceController));
-        router.put('/:attendanceId', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), [...attendanceIdValidation, ...updateAttendanceValidation], validationMiddleware, attendanceController.updateAttendance.bind(attendanceController));
-        router.get('/sessions/:sessionId', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), sessionIdValidation, validationMiddleware, (req, res) => {
-            req.query.sessionId = req.params.sessionId;
-            attendanceController.getAttendanceRecords.bind(attendanceController)(req, res);
+        const authMiddleware = new AuthMiddleware(tokenService, cookieService, authRepository, logger);
+        const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
+        router.use(generalRateLimit);
+        router.use(authMiddleware.authenticate());
+        router.use(establishmentMiddleware.extractEstablishment());
+        router.get("/sessions/:sessionId/roster", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getSessionRoster.bind(controller));
+        router.post("/sessions/:sessionId/student/:studentId", attendanceRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(markAttendanceSchema), controller.markAttendance.bind(controller));
+        router.put("/sessions/:sessionId/bulk", bulkOperationRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(bulkAttendanceSchema), controller.bulkMarkAttendance.bind(controller));
+        router.put("/:attendanceId", attendanceRateLimit, authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validate(updateAttendanceSchema), controller.updateAttendance.bind(controller));
+        router.get("/sessions/:sessionId", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getAttendanceRecords.bind(controller));
+        router.get("/records", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), ValidationMiddleware.validateQuery(attendanceFiltersSchema), controller.getAttendanceRecords.bind(controller));
+        router.get("/students/:studentId/history", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getStudentAttendanceHistory.bind(controller));
+        router.get("/sessions/:sessionId/stats", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getSessionAttendanceStats.bind(controller));
+        router.get("/trends", authMiddleware.requireEstablishmentAccess(["manager", "instructor"]), controller.getAttendanceTrends.bind(controller));
+        router.use((error, req, res, next) => {
+            logger.error("Attendance route error", {
+                error: error.message,
+                stack: error.stack,
+                url: req.url,
+                method: req.method,
+                body: req.body,
+                params: req.params,
+                query: req.query,
+            });
+            res.status(500).json({
+                success: false,
+                message: "Internal server error",
+                code: "INTERNAL_ERROR",
+            });
         });
-        router.get('/records', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), attendanceFiltersValidation, validationMiddleware, attendanceController.getAttendanceRecords.bind(attendanceController));
-        router.get('/students/:studentId/history', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), studentIdValidation, validationMiddleware, attendanceController.getStudentAttendanceHistory.bind(attendanceController));
-        router.get('/sessions/:sessionId/stats', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), sessionIdValidation, validationMiddleware, attendanceController.getSessionAttendanceStats.bind(attendanceController));
-        router.get('/trends', authMiddleware.authenticate.bind(authMiddleware), establishmentMiddleware.validateEstablishmentAccess.bind(establishmentMiddleware), [
-            query('startDate').optional().isISO8601().withMessage('Start date must be in ISO 8601 format'),
-            query('endDate').optional().isISO8601().withMessage('End date must be in ISO 8601 format'),
-            query('cohortId').optional().isUUID().withMessage('Cohort ID must be a valid UUID'),
-            query('instructorId').optional().isUUID().withMessage('Instructor ID must be a valid UUID')
-        ], validationMiddleware, attendanceController.getAttendanceTrends.bind(attendanceController));
         return router;
     };
-}
+};
+export default createAttendanceRoutes;

@@ -1,5 +1,6 @@
 import { DatabaseService } from '../../services/DatabaseService.js';
 import { LoggerService } from '../../services/LoggerService.js';
+import { AuditLogService } from '../../services/AuditLogService.js';
 import { AttendanceRepository } from './attendance.repository.js';
 import { AttendanceService } from './attendance.service.js';
 import { AttendanceController } from './attendance.controller.js';
@@ -31,6 +32,7 @@ export class AttendanceFactory {
   createAttendanceModule(
     db: DatabaseService,
     logger: LoggerService,
+    auditLogService: AuditLogService,
     tokenService: TokenService,
     authRepository: AuthRepository,
     passwordService: PasswordService,
@@ -64,6 +66,7 @@ export class AttendanceFactory {
     const routeFactory = createAttendanceRoutes(
       db,
       logger,
+      auditLogService,
       tokenService,
       authRepository,
       passwordService,

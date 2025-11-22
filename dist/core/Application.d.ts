@@ -55,6 +55,7 @@ export declare class Application {
     private setupDashboardModule;
     private setupStudentsModule;
     private setupAttendanceModule;
+    private setupPaymentsModule;
     private loadRoute;
     private setupErrorHandling;
     private startServer;

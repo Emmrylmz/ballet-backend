@@ -12,6 +12,7 @@ import {
   DatabaseConfig,
 } from "../services/DatabaseService.js";
 import { LoggerService, LoggerConfig } from "../services/LoggerService.js";
+import { AuditLogService } from "../services/AuditLogService.js";
 import { errorHandler } from "../middleware/errorHandler.js";
 import swaggerSpec from "../config/swagger.js";
 import { AuthFactory } from "../features/auth/auth.factory.js";
@@ -24,6 +25,7 @@ import { CohortsFactory } from "../features/cohorts/cohorts.factory.js";
 import { DashboardFactory } from "../features/dashboard/dashboard.factory.js";
 import { StudentsFactory } from "../features/students/students.factory.js";
 import { AttendanceFactory } from "../features/attendance/attendance.factory.js";
+import { PaymentsFactory } from "../features/payments/payments.factory.js";
 
 export interface ApplicationConfig {
   port: number;
@@ -55,6 +57,7 @@ export class Application {
   private server: Server | null = null;
   private database: DatabaseService;
   private logger: LoggerService;
+  private auditLogService: AuditLogService;
   private config: ApplicationConfig;
   private isStarted: boolean = false;
   private authMiddleware?: AuthMiddleware;
@@ -65,6 +68,7 @@ export class Application {
     this.app = express();
     this.database = new DatabaseService(config.database);
     this.logger = new LoggerService(config.logger);
+    this.auditLogService = new AuditLogService(this.database, this.logger);
 
     this.setupGracefulShutdown();
   }
@@ -351,9 +355,14 @@ export class Application {
         module: "attendance",
         isAttendance: true,
       },
+      {
+        path: "/api/v1/payments",
+        module: "payments",
+        isPayments: true,
+      },
     ];
 
-    for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard, isStudents, isAttendance } of routes) {
+    for (const { path, module, isAuth, isInvitation, isClasses, isCohorts, isDashboard, isStudents, isAttendance, isPayments } of routes) {
       try {
         if (isAuth) {
           // Handle auth routes specially
@@ -405,6 +414,13 @@ export class Application {
             this.app.use(path, attendanceRoutes);
             this.logger.info(`Loaded attendance routes: ${path}`);
           }
+        } else if (isPayments) {
+          // Handle payments routes specially
+          const paymentsRoutes = await this.setupPaymentsModule();
+          if (paymentsRoutes) {
+            this.app.use(path, paymentsRoutes);
+            this.logger.info(`Loaded payments routes: ${path}`);
+          }
         } else {
           // Handle other routes
           const routeModule = await import(module);
@@ -434,6 +450,7 @@ export class Application {
       const authModule = authFactory.createAuthModule(
         this.database,
         this.logger,
+        this.auditLogService,
         {
           accessTokenSecret: this.config.auth.accessTokenSecret,
           refreshTokenSecret: this.config.auth.refreshTokenSecret,
@@ -645,6 +662,7 @@ export class Application {
       const attendanceModule = attendanceFactory.createAttendanceModule(
         this.database,
         this.logger,
+        this.auditLogService,
         tokenService,
         authRepository,
         passwordService,
@@ -655,6 +673,42 @@ export class Application {
       return attendanceModule.attendanceRouter;
     } catch (error) {
       this.logger.error("Failed to setup attendance module", { error });
+      throw error;
+    }
+  }
+
+  private async setupPaymentsModule(): Promise<Router> {
+    try {
+      const authFactory = AuthFactory.getInstance();
+
+      // Get required services from auth factory
+      const tokenService = authFactory.getTokenService();
+      const authRepository = authFactory.getAuthRepository();
+      const passwordService = authFactory.getPasswordService();
+      const cookieService = authFactory.getCookieService();
+
+      if (!tokenService || !authRepository || !passwordService || !cookieService) {
+        throw new Error(
+          "Auth module must be initialized before payments module"
+        );
+      }
+
+      // Create payments module using factory
+      const paymentsFactory = PaymentsFactory.getInstance();
+      const paymentsModule = paymentsFactory.createPaymentsModule(
+        this.database,
+        this.logger,
+        this.auditLogService,
+        tokenService,
+        authRepository,
+        passwordService,
+        cookieService
+      );
+
+      this.logger.info("Payments module initialized successfully");
+      return paymentsModule.paymentsRouter;
+    } catch (error) {
+      this.logger.error("Failed to setup payments module", { error });
       throw error;
     }
   }
@@ -671,7 +725,7 @@ export class Application {
 
   private async startServer(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.server = this.app.listen(8001, () => {
+      this.server = this.app.listen(this.config.port, () => {
         this.logger.info(`HTTP server listening on port ${this.config.port}`);
         resolve();
       });

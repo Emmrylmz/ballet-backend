@@ -1,5 +1,6 @@
 import { Response, Request } from "express";
 import { LoggerService } from "../../services/LoggerService.js";
+import { AuditLogService } from "../../services/AuditLogService.js";
 import { AuthRepository } from "./auth.repository.js";
 import { TokenService } from "./services/TokenService.js";
 import { PasswordService } from "./services/PasswordService.js";
@@ -40,6 +41,7 @@ export class AuthService {
     private emailService: EmailService,
     private cookieService: CookieService,
     private logger: LoggerService,
+    private auditLogService: AuditLogService,
     config: {
       securitySettings: SecuritySettings;
       frontendUrl: string;
@@ -94,6 +96,20 @@ export class AuthService {
           failureReason: "User not found",
         });
 
+        // Centralized audit log for failed login
+        await this.auditLogService.create({
+          entityType: 'auth',
+          action: 'failed_login',
+          userId: '00000000-0000-0000-0000-000000000000', // Unknown user
+          targetId: '00000000-0000-0000-0000-000000000000',
+          metadata: {
+            email: loginData.email,
+            reason: 'User not found',
+            ipAddress,
+            userAgent
+          }
+        });
+
         throw this.createAuthError(
           "INVALID_CREDENTIALS",
           AUTH_ERRORS.INVALID_CREDENTIALS,
@@ -113,6 +129,20 @@ export class AuthService {
           failureReason: "Account suspended",
         });
 
+        // Centralized audit log for suspended account login attempt
+        await this.auditLogService.create({
+          entityType: 'auth',
+          action: 'failed_login',
+          userId: user.id,
+          targetId: user.id,
+          metadata: {
+            email: loginData.email,
+            reason: 'Account suspended',
+            ipAddress,
+            userAgent
+          }
+        });
+
         throw this.createAuthError(
           "ACCOUNT_SUSPENDED",
           AUTH_ERRORS.ACCOUNT_DISABLED,
@@ -129,6 +159,20 @@ export class AuthService {
           userAgent,
           success: false,
           failureReason: "Account not activated",
+        });
+
+        // Centralized audit log for pending account login attempt
+        await this.auditLogService.create({
+          entityType: 'auth',
+          action: 'failed_login',
+          userId: user.id,
+          targetId: user.id,
+          metadata: {
+            email: loginData.email,
+            reason: 'Account not activated',
+            ipAddress,
+            userAgent
+          }
         });
 
         throw this.createAuthError(
@@ -164,6 +208,20 @@ export class AuthService {
           userAgent,
           success: false,
           failureReason: "Invalid password",
+        });
+
+        // Centralized audit log for invalid password
+        await this.auditLogService.create({
+          entityType: 'auth',
+          action: 'failed_login',
+          userId: user.id,
+          targetId: user.id,
+          metadata: {
+            email: loginData.email,
+            reason: 'Invalid password',
+            ipAddress,
+            userAgent
+          }
         });
 
         throw this.createAuthError(

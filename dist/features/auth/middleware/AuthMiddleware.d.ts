@@ -32,6 +32,7 @@ export declare class AuthMiddleware {
     rateLimitByUser(maxRequests?: number, windowMs?: number): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void;
     validateEstablishmentContext(): (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>;
     logRequest(): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void;
+    private updateSessionInfoAsync;
     private attemptTokenRefresh;
     private sendUnauthorized;
     private hashToken;

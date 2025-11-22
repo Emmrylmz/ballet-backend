@@ -8,7 +8,6 @@ export class AttendanceController {
     }
     async getSessionRoster(req, res) {
         try {
-            console.log("hey");
             const sessionId = req.params.sessionId;
             const establishmentId = req.establishment?.id;
             const instructorId = req.user?.id;

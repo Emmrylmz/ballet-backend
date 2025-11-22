@@ -5,7 +5,9 @@ import { AttendanceService } from "./attendance.service.js";
 import { AttendanceRepository } from "./attendance.repository.js";
 import { DatabaseService } from "../../services/DatabaseService.js";
 import { LoggerService } from "../../services/LoggerService.js";
+import { AuditLogService } from "../../services/AuditLogService.js";
 import { AuthMiddleware } from "../auth/middleware/AuthMiddleware.js";
+import { AuditMiddleware } from "../../middleware/AuditMiddleware.js";
 import { EstablishmentMiddleware } from "../../middleware/EstablishmentMiddleware.js";
 import { ValidationMiddleware } from "../../middleware/ValidationMiddleware.js";
 import { TokenService } from "../auth/services/TokenService.js";
@@ -100,6 +102,7 @@ const generalRateLimit = rateLimit({
 const createAttendanceRoutes = (
   db: DatabaseService,
   logger: LoggerService,
+  auditLogService: AuditLogService,
   tokenService: TokenService,
   authRepository: AuthRepository,
   passwordService: any,
@@ -118,6 +121,7 @@ const createAttendanceRoutes = (
       logger
     );
     const establishmentMiddleware = new EstablishmentMiddleware(logger, db);
+    const auditMiddleware = new AuditMiddleware(auditLogService, logger);
 
     // Apply rate limiting to all routes
     router.use(generalRateLimit);
@@ -256,6 +260,7 @@ const createAttendanceRoutes = (
     attendanceRateLimit,
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validate(markAttendanceSchema),
+    auditMiddleware.log('attendance', 'mark_attendance'),
     controller.markAttendance.bind(controller)
   );
 
@@ -339,6 +344,7 @@ const createAttendanceRoutes = (
     bulkOperationRateLimit,
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validate(bulkAttendanceSchema),
+    auditMiddleware.logBatch('attendance', 'bulk_mark_attendance'),
     controller.bulkMarkAttendance.bind(controller)
   );
 
@@ -405,6 +411,7 @@ const createAttendanceRoutes = (
     attendanceRateLimit,
     authMiddleware.requireEstablishmentAccess(["manager", "instructor"]),
     ValidationMiddleware.validate(updateAttendanceSchema),
+    auditMiddleware.log('attendance', 'update_attendance'),
     controller.updateAttendance.bind(controller)
   );
 

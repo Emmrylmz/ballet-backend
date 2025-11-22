@@ -4,140 +4,119 @@ export class AttendanceRepository {
         this.db = db;
     }
     async getSessionRoster(sessionId, establishmentId) {
-        const query = `
-      WITH session_info AS (
-        SELECT 
-          cs.id,
-          cs.session_date,
-          cs.start_time,
-          cs.end_time,
-          cs.capacity,
-          cs.status,
-          ct.title as session_title,
-          c.name as cohort_name,
-          COALESCE(
-            CONCAT(override_u.first_name, ' ', override_u.last_name),
-            CONCAT(instructor_u.first_name, ' ', instructor_u.last_name)
-          ) as instructor_name
-        FROM class_sessions cs
-        LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
-        LEFT JOIN cohorts c ON cs.cohort_id = c.id
-        LEFT JOIN users instructor_u ON cs.instructor_id = instructor_u.id
-        LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
-        WHERE cs.id = $1 AND cs.establishment_id = $2
-      ),
-      enrollments_with_attendance AS (
-        SELECT 
-          se.id as enrollment_id,
-          se.student_id,
-          s.name as student_name,
-          s.phone as student_phone,
-          s.email as student_email,
-          s.medical_notes,
-          s.emergency_contact,
-          s.emergency_contact_name,
-          se.is_waitlist,
-          se.enrollment_date,
-          ar.id as attendance_id,
-          ar.status as attendance_status,
-          ar.notes as attendance_notes,
-          ar.marked_at,
-          ar.marked_by,
-          CONCAT(marker.first_name, ' ', marker.last_name) as marked_by_name
-        FROM session_enrollments se
-        JOIN students s ON se.student_id = s.id
-        LEFT JOIN attendance_records ar ON se.session_id = ar.session_id AND se.student_id = ar.student_id
-        LEFT JOIN users marker ON ar.marked_by = marker.id
-        WHERE se.session_id = $1 AND se.establishment_id = $2
-        ORDER BY s.name
-      ),
-      attendance_stats AS (
-        SELECT 
-          COUNT(*) as total_enrolled,
-          COUNT(CASE WHEN ar.status = 'present' THEN 1 END) as total_present,
-          COUNT(CASE WHEN ar.status = 'late' THEN 1 END) as total_late,
-          COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as total_absent,
-          COUNT(CASE WHEN ar.status = 'excused' THEN 1 END) as total_excused
-        FROM session_enrollments se
-        LEFT JOIN attendance_records ar ON se.session_id = ar.session_id AND se.student_id = ar.student_id
-        WHERE se.session_id = $1 AND se.establishment_id = $2
-      )
+        const sessionQuery = `
       SELECT 
-        si.*,
-        json_agg(
-          json_build_object(
-            'enrollmentId', ewa.enrollment_id,
-            'studentId', ewa.student_id,
-            'studentName', ewa.student_name,
-            'studentPhone', ewa.student_phone,
-            'studentEmail', ewa.student_email,
-            'medicalNotes', ewa.medical_notes,
-            'emergencyContact', ewa.emergency_contact,
-            'emergencyContactName', ewa.emergency_contact_name,
-            'isWaitlist', ewa.is_waitlist,
-            'enrollmentDate', ewa.enrollment_date,
-            'hasAttendance', ewa.attendance_id IS NOT NULL,
-            'attendanceStatus', ewa.attendance_status,
-            'attendanceNotes', ewa.attendance_notes,
-            'attendanceRecord', 
-              CASE 
-                WHEN ewa.attendance_id IS NOT NULL THEN
-                  json_build_object(
-                    'id', ewa.attendance_id,
-                    'establishmentId', $2,
-                    'sessionId', $1,
-                    'studentId', ewa.student_id,
-                    'status', ewa.attendance_status,
-                    'notes', ewa.attendance_notes,
-                    'markedAt', ewa.marked_at,
-                    'markedBy', ewa.marked_by,
-                    'markedByName', ewa.marked_by_name
-                  )
-                ELSE NULL
-              END
-          ) ORDER BY ewa.student_name
-        ) as enrollments,
-        json_build_object(
-          'totalEnrolled', ast.total_enrolled,
-          'totalPresent', ast.total_present,
-          'totalLate', ast.total_late,
-          'totalAbsent', ast.total_absent,
-          'totalExcused', ast.total_excused,
-          'attendanceRate', 
-            CASE 
-              WHEN ast.total_enrolled > 0 THEN 
-                ROUND(
-                  ((ast.total_present + ast.total_late)::DECIMAL / ast.total_enrolled::DECIMAL) * 100, 
-                  2
-                )
-              ELSE 0 
-            END
-        ) as attendance_stats
-      FROM session_info si
-      CROSS JOIN enrollments_with_attendance ewa
-      CROSS JOIN attendance_stats ast
-      GROUP BY si.id, si.session_date, si.start_time, si.end_time, si.capacity, 
-               si.status, si.session_title, si.cohort_name, si.instructor_name,
-               ast.total_enrolled, ast.total_present, ast.total_late, 
-               ast.total_absent, ast.total_excused
+        cs.id,
+        cs.session_date,
+        cs.start_time,
+        cs.end_time,
+        cs.capacity,
+        cs.status,
+        ct.title as session_title,
+        c.name as cohort_name,
+        COALESCE(
+          CONCAT(override_u.first_name, ' ', override_u.last_name),
+          CONCAT(instructor_u.first_name, ' ', instructor_u.last_name)
+        ) as instructor_name
+      FROM class_sessions cs
+      LEFT JOIN class_templates ct ON cs.class_template_id = ct.id
+      LEFT JOIN cohorts c ON cs.cohort_id = c.id
+      LEFT JOIN users instructor_u ON cs.instructor_id = instructor_u.id
+      LEFT JOIN users override_u ON cs.override_instructor_id = override_u.id
+      WHERE cs.id = $1 AND cs.establishment_id = $2
     `;
-        const result = await this.db.query(query, [sessionId, establishmentId]);
-        if (result.rows.length === 0) {
+        const sessionResult = await this.db.query(sessionQuery, [sessionId, establishmentId]);
+        if (sessionResult.rows.length === 0) {
             return null;
         }
-        const row = result.rows[0];
+        const sessionInfo = sessionResult.rows[0];
+        const enrollmentsQuery = `
+      SELECT 
+        se.id as enrollment_id,
+        se.student_id,
+        s.name as student_name,
+        s.phone as student_phone,
+        s.email as student_email,
+        s.medical_notes,
+        s.emergency_contact,
+        s.emergency_contact_name,
+        se.is_waitlist,
+        se.enrollment_date,
+        ar.id as attendance_id,
+        ar.status as attendance_status,
+        ar.notes as attendance_notes,
+        ar.marked_at,
+        ar.marked_by,
+        CONCAT(marker.first_name, ' ', marker.last_name) as marked_by_name
+      FROM session_enrollments se
+      JOIN students s ON se.student_id = s.id
+      LEFT JOIN attendance_records ar ON se.session_id = ar.session_id AND se.student_id = ar.student_id
+      LEFT JOIN users marker ON ar.marked_by = marker.id
+      WHERE se.session_id = $1 AND se.establishment_id = $2
+      ORDER BY s.name
+    `;
+        const enrollmentsResult = await this.db.query(enrollmentsQuery, [sessionId, establishmentId]);
+        const statsQuery = `
+      SELECT 
+        COUNT(*) as total_enrolled,
+        COUNT(CASE WHEN ar.status = 'present' THEN 1 END) as total_present,
+        COUNT(CASE WHEN ar.status = 'late' THEN 1 END) as total_late,
+        COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as total_absent,
+        COUNT(CASE WHEN ar.status = 'excused' THEN 1 END) as total_excused
+      FROM session_enrollments se
+      LEFT JOIN attendance_records ar ON se.session_id = ar.session_id AND se.student_id = ar.student_id
+      WHERE se.session_id = $1 AND se.establishment_id = $2
+    `;
+        const statsResult = await this.db.query(statsQuery, [sessionId, establishmentId]);
+        const stats = statsResult.rows[0];
+        const enrollments = enrollmentsResult.rows.map(row => ({
+            enrollmentId: row.enrollment_id,
+            studentId: row.student_id,
+            studentName: row.student_name,
+            studentPhone: row.student_phone,
+            studentEmail: row.student_email,
+            medicalNotes: row.medical_notes,
+            emergencyContact: row.emergency_contact,
+            emergencyContactName: row.emergency_contact_name,
+            isWaitlist: row.is_waitlist,
+            enrollmentDate: row.enrollment_date,
+            hasAttendance: row.attendance_id !== null,
+            attendanceStatus: row.attendance_status,
+            attendanceNotes: row.attendance_notes,
+            attendanceRecord: row.attendance_id ? {
+                id: row.attendance_id,
+                establishmentId,
+                sessionId,
+                studentId: row.student_id,
+                status: row.attendance_status,
+                notes: row.attendance_notes,
+                markedAt: row.marked_at,
+                markedBy: row.marked_by,
+                markedByName: row.marked_by_name
+            } : null
+        }));
+        const attendanceRate = stats.total_enrolled > 0
+            ? Math.round(((parseInt(stats.total_present) + parseInt(stats.total_late)) / parseInt(stats.total_enrolled)) * 100 * 100) / 100
+            : 0;
         return {
             sessionId: sessionId,
-            sessionDate: row.session_date,
-            startTime: row.start_time,
-            endTime: row.end_time,
-            sessionTitle: row.session_title,
-            cohortName: row.cohort_name,
-            instructorName: row.instructor_name,
-            capacity: row.capacity,
-            status: row.status,
-            enrollments: row.enrollments || [],
-            attendanceStats: row.attendance_stats
+            sessionDate: sessionInfo.session_date,
+            startTime: sessionInfo.start_time,
+            endTime: sessionInfo.end_time,
+            sessionTitle: sessionInfo.session_title,
+            cohortName: sessionInfo.cohort_name,
+            instructorName: sessionInfo.instructor_name,
+            capacity: sessionInfo.capacity,
+            status: sessionInfo.status,
+            enrollments: enrollments,
+            attendanceStats: {
+                totalEnrolled: parseInt(stats.total_enrolled),
+                totalPresent: parseInt(stats.total_present),
+                totalLate: parseInt(stats.total_late),
+                totalAbsent: parseInt(stats.total_absent),
+                totalExcused: parseInt(stats.total_excused),
+                attendanceRate: attendanceRate
+            }
         };
     }
     async markAttendance(sessionId, studentId, establishmentId, request, markedBy) {
